@@ -1,9 +1,54 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Games Website</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Games Web</title>
+  <link rel="stylesheet" href="style.css"/>
 </head>
+
 <body>
-  <h1>My Games Website</h1>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">🎮 Games Web</div>
+
+    <input type="text" id="search" placeholder="Search games..." />
+  </header>
+
+  <!-- CATEGORIES -->
+  <div class="categories">
+    <button>All</button>
+    <button>Action</button>
+    <button>Racing</button>
+    <button>Puzzle</button>
+    <button>Shooting</button>
+  </div>
+
+  <!-- GAME GRID -->
+  <main class="grid">
+
+    <a class="game-card" href="games/slope.html">
+      <div class="thumb">Slope</div>
+      <p>Slope</p>
+    </a>
+
+    <a class="game-card" href="games/drift.html">
+      <div class="thumb">Drift</div>
+      <p>Drift Hunters</p>
+    </a>
+
+    <a class="game-card" href="games/retro.html">
+      <div class="thumb">Retro</div>
+      <p>Retro Bowl</p>
+    </a>
+
+    <a class="game-card" href="games/stack.html">
+      <div class="thumb">Stack</div>
+      <p>Stack</p>
+    </a>
+
+  </main>
+
 </body>
 </html>
