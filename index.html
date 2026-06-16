@@ -1,54 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Games Web</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta charset="UTF-8">
+  <title>mcalts Games</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <!-- HEADER -->
-  <header class="header">
-    <div class="logo">🎮 Games Web</div>
+<header>
+  <h1>🎮 mcalts Games</h1>
+  <input type="text" id="search" placeholder="Search games...">
+</header>
 
-    <input type="text" id="search" placeholder="Search games..." />
-  </header>
+<section class="grid" id="gameGrid">
 
-  <!-- CATEGORIES -->
-  <div class="categories">
-    <button>All</button>
-    <button>Action</button>
-    <button>Racing</button>
-    <button>Puzzle</button>
-    <button>Shooting</button>
-  </div>
+  <a href="games/snake/index.html" class="card">🐍 Snake</a>
+  <a href="games/tictactoe/index.html" class="card">❌ Tic Tac Toe</a>
+  <a href="games/pong/index.html" class="card">🏓 Pong</a>
+  <a href="games/flappy/index.html" class="card">🐤 Flappy Bird</a>
+  <a href="games/2048/index.html" class="card">🔢 2048</a>
 
-  <!-- GAME GRID -->
-  <main class="grid">
+</section>
 
-    <a class="game-card" href="games/slope.html">
-      <div class="thumb">Slope</div>
-      <p>Slope</p>
-    </a>
-
-    <a class="game-card" href="games/drift.html">
-      <div class="thumb">Drift</div>
-      <p>Drift Hunters</p>
-    </a>
-
-    <a class="game-card" href="games/retro.html">
-      <div class="thumb">Retro</div>
-      <p>Retro Bowl</p>
-    </a>
-
-    <a class="game-card" href="games/stack.html">
-      <div class="thumb">Stack</div>
-      <p>Stack</p>
-    </a>
-
-  </main>
-
+<script src="script.js"></script>
 </body>
 </html>
