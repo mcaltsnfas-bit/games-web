@@ -2,25 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>mcalts Games</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header>
+<header class="topbar">
   <h1>🎮 mcalts Games</h1>
+  <p>Play free browser games instantly</p>
+
   <input type="text" id="search" placeholder="Search games...">
 </header>
 
+<section class="categories">
+  <button onclick="filterGames('all')">All</button>
+  <button onclick="filterGames('arcade')">Arcade</button>
+  <button onclick="filterGames('logic')">Logic</button>
+</section>
+
 <section class="grid" id="gameGrid">
 
-  <a href="games/snake/index.html" class="card">🐍 Snake</a>
-  <a href="games/tictactoe/index.html" class="card">❌ Tic Tac Toe</a>
-  <a href="games/pong/index.html" class="card">🏓 Pong</a>
-  <a href="games/flappy/index.html" class="card">🐤 Flappy Bird</a>
-  <a href="games/2048/index.html" class="card">🔢 2048</a>
+  <a href="games/snake/index.html" class="card arcade">
+    🐍 Snake
+  </a>
+
+  <a href="games/pong/index.html" class="card arcade">
+    🏓 Pong
+  </a>
+
+  <a href="games/tictactoe/index.html" class="card logic">
+    ❌ Tic Tac Toe
+  </a>
 
 </section>
+
+<footer>
+  <p>Made by mcalts 🚀</p>
+</footer>
 
 <script src="script.js"></script>
 </body>

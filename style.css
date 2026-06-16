@@ -1,46 +1,86 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #0f0f1a;
+  background: #0b0f19;
   color: white;
 }
 
-header {
-  padding: 20px;
+/* TOP BAR */
+.topbar {
   text-align: center;
-  background: #1a1a2e;
+  padding: 30px 20px;
+  background: linear-gradient(135deg, #111827, #1f2937);
 }
 
-h1 {
+.topbar h1 {
   margin: 0;
+  font-size: 32px;
 }
 
+.topbar p {
+  opacity: 0.7;
+}
+
+/* SEARCH */
 #search {
-  margin-top: 10px;
+  margin-top: 15px;
   padding: 10px;
   width: 60%;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
 }
 
+/* CATEGORIES */
+.categories {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px;
+}
+
+.categories button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #1f2937;
+  color: white;
+}
+
+.categories button:hover {
+  background: #374151;
+}
+
+/* GAME GRID */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 15px;
   padding: 20px;
 }
 
+/* GAME CARD */
 .card {
-  background: #222;
-  padding: 20px;
-  text-align: center;
-  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 120px;
+  border-radius: 12px;
+  background: #111827;
   text-decoration: none;
   color: white;
+  font-size: 18px;
   transition: 0.2s;
 }
 
 .card:hover {
-  background: #333;
   transform: scale(1.05);
+  background: #1f2937;
+}
+
+/* FOOTER */
+footer {
+  text-align: center;
+  padding: 20px;
+  opacity: 0.6;
 }
