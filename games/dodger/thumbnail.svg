@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#11161f"/>
+      <stop offset="1" stop-color="#060809"/>
+    </linearGradient>
+    <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#ffffff" opacity="0.06"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="240" fill="url(#sky)"/>
+  <rect width="400" height="240" fill="url(#dots)"/>
+
+  <!-- pipes -->
+  <g fill="#3ee08a">
+    <rect x="100" y="0" width="48" height="70" rx="3"/>
+    <rect x="100" y="150" width="48" height="90" rx="3"/>
+    <rect x="280" y="0" width="48" height="110" rx="3"/>
+    <rect x="280" y="190" width="48" height="50" rx="3"/>
+  </g>
+
+  <!-- bird -->
+  <g>
+    <circle cx="200" cy="120" r="20" fill="#ffce45"/>
+    <circle cx="200" cy="120" r="32" fill="#ffce45" opacity="0.15"/>
+    <path d="M216 113 L232 120 L216 127 Z" fill="#060809"/>
+    <circle cx="208" cy="113" r="3" fill="#060809"/>
+  </g>
+</svg>

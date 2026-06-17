@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%95%B9%EF%B8%8F</text></svg>">
+<title>Memory Match — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  #board {
+    grid-template-columns: repeat(4, 72px);
+    grid-template-rows: repeat(4, 72px);
+  }
+  .tile.mem { width: 72px; height: 72px; font-size: 30px; }
+  .tile.mem.matched { opacity: 0.5; border-color: var(--green); cursor: default; }
+</style>
+</head>
+<body>
+
+<div class="game-topbar">
+  <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+  <span class="game-topbar__brand">WEB ARCADE</span>
+</div>
+
+<main class="game-shell">
+  <h2>Memory Match</h2>
+  <p class="game-shell__hint">Flip two cards at a time and find every pair in as few moves as possible.</p>
+
+  <div class="scoreboard">
+    <div class="scoreboard__item">Moves<b id="moves">0</b></div>
+    <div class="scoreboard__item">Time<b id="timer">0:00</b></div>
+    <div class="scoreboard__item">Best<b id="best">&ndash;</b></div>
+  </div>
+
+  <div class="game-stage">
+    <div class="grid-board" id="board"></div>
+    <div class="game-overlay" id="overlay">
+      <div class="game-overlay__title">All matched!</div>
+      <div class="game-overlay__detail" id="overlayDetail">Moves: 0 · Time: 0:00</div>
+      <button class="btn btn--solid" id="restart">Play again</button>
+    </div>
+  </div>
+</main>
+
+<script>
+const boardEl = document.getElementById('board');
+const movesEl = document.getElementById('moves');
+const timerEl = document.getElementById('timer');
+const bestEl = document.getElementById('best');
+const overlay = document.getElementById('overlay');
+const overlayDetail = document.getElementById('overlayDetail');
+
+const SYMBOLS = ['🍒', '🍋', '🔔', '💎', '⭐', '🍀', '🎯', '👾'];
+
+const BEST_KEY = 'arcade.memory.best';
+function getBest(){ try { return parseInt(localStorage.getItem(BEST_KEY) || '0', 10); } catch(e){ return 0; } }
+function setBest(v){ try { localStorage.setItem(BEST_KEY, String(v)); } catch(e){} }
+function bestDisplay(v){ return v === 0 ? '\u2013' : v; }
+bestEl.textContent = bestDisplay(getBest());
+
+function buildDeck(){
+  const deck = [...SYMBOLS, ...SYMBOLS];
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck.map((symbol) => ({ symbol, matched: false, flipped: false }));
+}
+
+let cards, firstPick, secondPick, locked, moves, matchesFound, timerInterval, seconds, started;
+
+function formatTime(s){
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+function startTimer(){
+  seconds = 0;
+  timerEl.textContent = '0:00';
+  timerInterval = setInterval(() => {
+    seconds++;
+    timerEl.textContent = formatTime(seconds);
+  }, 1000);
+}
+
+function render(){
+  boardEl.innerHTML = '';
+  cards.forEach((card, i) => {
+    const tile = document.createElement('div');
+    tile.className = 'tile mem' + (card.matched ? ' matched' : '');
+    tile.textContent = card.flipped || card.matched ? card.symbol : '';
+    tile.addEventListener('click', () => flip(i));
+    boardEl.appendChild(tile);
+  });
+  movesEl.textContent = moves;
+}
+
+function finishGame(){
+  clearInterval(timerInterval);
+  const best = getBest();
+  const newBest = best === 0 || moves < best;
+  if (newBest) setBest(moves);
+  bestEl.textContent = bestDisplay(getBest());
+  overlayDetail.textContent = `Moves: ${moves} · Time: ${formatTime(seconds)}` + (newBest ? ' · New best!' : '');
+  overlay.classList.add('is-visible');
+}
+
+function flip(i){
+  if (locked) return;
+  const card = cards[i];
+  if (card.matched || card.flipped) return;
+  if (!started) { started = true; startTimer(); }
+
+  card.flipped = true;
+
+  if (firstPick === null) {
+    firstPick = i;
+    render();
+    return;
+  }
+
+  secondPick = i;
+  moves++;
+  render();
+  locked = true;
+
+  if (cards[firstPick].symbol === cards[secondPick].symbol) {
+    cards[firstPick].matched = true;
+    cards[secondPick].matched = true;
+    matchesFound++;
+    firstPick = null;
+    secondPick = null;
+    locked = false;
+    render();
+    if (matchesFound === SYMBOLS.length) finishGame();
+  } else {
+    setTimeout(() => {
+      cards[firstPick].flipped = false;
+      cards[secondPick].flipped = false;
+      firstPick = null;
+      secondPick = null;
+      locked = false;
+      render();
+    }, 700);
+  }
+}
+
+function reset(){
+  clearInterval(timerInterval);
+  cards = buildDeck();
+  firstPick = null;
+  secondPick = null;
+  locked = false;
+  moves = 0;
+  matchesFound = 0;
+  seconds = 0;
+  started = false;
+  timerEl.textContent = '0:00';
+  overlay.classList.remove('is-visible');
+  render();
+}
+
+document.getElementById('restart').addEventListener('click', reset);
+
+reset();
+</script>
+
+</body>
+</html>

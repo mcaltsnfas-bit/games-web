@@ -1,122 +1,203 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Pong</title>
-<style>
-body {
-  margin:0;
-  font-family:Arial;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  background:#f5f5f5;
-}
-
-canvas {
-  border:2px solid #ddd;
-  margin-top:20px;
-  background:white;
-}
-
-button {
-  margin-top:10px;
-  padding:10px;
-}
-</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%95%B9%EF%B8%8F</text></svg>">
+<title>Pong — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
 </head>
 <body>
 
-<h2>Pong</h2>
+<div class="game-topbar">
+  <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+  <span class="game-topbar__brand">WEB ARCADE</span>
+</div>
 
-<canvas id="c" width="500" height="300"></canvas>
-<button onclick="reset()">Restart</button>
+<main class="game-shell">
+  <h2>Pong</h2>
+  <p class="game-shell__hint">Move your mouse (or finger) to steer the left paddle. First to 5 wins.</p>
+
+  <div class="scoreboard">
+    <div class="scoreboard__item">You<b id="playerScore">0</b></div>
+    <div class="scoreboard__item">CPU<b id="aiScore">0</b></div>
+    <div class="scoreboard__item">Wins<b id="wins">0</b></div>
+  </div>
+
+  <div class="game-stage">
+    <canvas id="game" width="500" height="300"></canvas>
+    <div class="game-overlay" id="overlay">
+      <div class="game-overlay__title" id="overlayTitle">You win!</div>
+      <div class="game-overlay__detail" id="overlayDetail">Final score 5 - 2</div>
+      <button class="btn btn--solid" id="restart">Play again</button>
+    </div>
+  </div>
+
+  <div class="game-controls">
+    <button class="btn" id="restartTop">Restart match</button>
+  </div>
+</main>
 
 <script>
-const c = document.getElementById("c");
-const ctx = c.getContext("2d");
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const PADDLE_W = 10, PADDLE_H = 80, BALL = 10;
+const PLAYER_X = 16, AI_X = W - 16 - PADDLE_W;
+const WIN_SCORE = 5;
 
-// GAME STATE
-let ball, paddle;
+const playerScoreEl = document.getElementById('playerScore');
+const aiScoreEl = document.getElementById('aiScore');
+const winsEl = document.getElementById('wins');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlayTitle');
+const overlayDetail = document.getElementById('overlayDetail');
 
-// INIT
-function reset(){
+const WINS_KEY = 'arcade.pong.wins';
+function getWins(){ try { return parseInt(localStorage.getItem(WINS_KEY) || '0', 10); } catch(e){ return 0; } }
+function addWin(){ try { localStorage.setItem(WINS_KEY, String(getWins() + 1)); } catch(e){} }
+winsEl.textContent = getWins();
+
+let ball, playerY, aiY, playerScore, aiScore, running;
+
+function serve(direction){
   ball = {
-    x: 250,
-    y: 150,
-    vx: 3,
-    vy: 2
+    x: W / 2,
+    y: H / 2,
+    vx: 4 * direction,
+    vy: (Math.random() * 4) - 2
   };
-
-  paddle = {
-    y: 120
-  };
+  if (Math.abs(ball.vy) < 1) ball.vy = 1.5;
 }
 
-// FIX 1: correct mouse tracking (this is where most versions break)
-c.addEventListener("mousemove", (e) => {
-  const rect = c.getBoundingClientRect();
-  const mouseY = e.clientY - rect.top;
+function updateScores(){
+  playerScoreEl.textContent = playerScore;
+  aiScoreEl.textContent = aiScore;
+}
 
-  paddle.y = mouseY - 40;
+function reset(){
+  playerY = H / 2 - PADDLE_H / 2;
+  aiY = H / 2 - PADDLE_H / 2;
+  playerScore = 0;
+  aiScore = 0;
+  running = true;
+  updateScores();
+  overlay.classList.remove('is-visible');
+  serve(Math.random() < 0.5 ? 1 : -1);
+}
 
-  // clamp so paddle never goes off screen
-  if(paddle.y < 0) paddle.y = 0;
-  if(paddle.y > 220) paddle.y = 220;
-});
+function clampPlayer(){
+  if (playerY < 0) playerY = 0;
+  if (playerY > H - PADDLE_H) playerY = H - PADDLE_H;
+}
 
-// UPDATE LOGIC
+function trackPointer(clientY){
+  const rect = canvas.getBoundingClientRect();
+  const scale = canvas.height / rect.height;
+  playerY = (clientY - rect.top) * scale - PADDLE_H / 2;
+  clampPlayer();
+}
+
+canvas.addEventListener('mousemove', (e) => trackPointer(e.clientY));
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  trackPointer(e.touches[0].clientY);
+}, { passive: false });
+
+function endGame(playerWon){
+  running = false;
+  if (playerWon) {
+    addWin();
+    winsEl.textContent = getWins();
+    overlayTitle.textContent = 'You win!';
+  } else {
+    overlayTitle.textContent = 'CPU wins';
+  }
+  overlayDetail.textContent = `Final score ${playerScore} - ${aiScore}`;
+  overlay.classList.add('is-visible');
+}
+
 function update(){
+  // AI tracks the ball with a capped speed, so it's beatable
+  const aiCenter = aiY + PADDLE_H / 2;
+  const aiSpeed = 3.3;
+  if (aiCenter < ball.y - 6) aiY += aiSpeed;
+  else if (aiCenter > ball.y + 6) aiY -= aiSpeed;
+  if (aiY < 0) aiY = 0;
+  if (aiY > H - PADDLE_H) aiY = H - PADDLE_H;
+
   ball.x += ball.vx;
   ball.y += ball.vy;
 
-  // top/bottom bounce
-  if(ball.y <= 0 || ball.y >= 290){
-    ball.vy *= -1;
+  if (ball.y <= 0) { ball.y = 0; ball.vy *= -1; }
+  if (ball.y >= H - BALL) { ball.y = H - BALL; ball.vy *= -1; }
+
+  // player paddle collision
+  if (ball.vx < 0 && ball.x <= PLAYER_X + PADDLE_W && ball.x >= PLAYER_X &&
+      ball.y + BALL >= playerY && ball.y <= playerY + PADDLE_H) {
+    const hit = ((ball.y + BALL / 2) - (playerY + PADDLE_H / 2)) / (PADDLE_H / 2);
+    ball.vy = hit * 4.5;
+    ball.vx = Math.min(Math.abs(ball.vx) * 1.05, 9);
+    ball.x = PLAYER_X + PADDLE_W + 1;
   }
 
-  // FIX 2: proper paddle collision (simple & forgiving)
-  const paddleX = 20;
-  const paddleW = 10;
-  const paddleH = 80;
-
-  if(
-    ball.x <= paddleX + paddleW &&
-    ball.y >= paddle.y &&
-    ball.y <= paddle.y + paddleH
-  ){
-    ball.vx *= -1;
-
-    // push ball outside paddle so it doesn't re-trigger instantly
-    ball.x = paddleX + paddleW + 1;
-
-    // tiny speed increase (Google feel)
-    ball.vx *= 1.02;
+  // AI paddle collision
+  if (ball.vx > 0 && ball.x + BALL >= AI_X && ball.x <= AI_X + PADDLE_W &&
+      ball.y + BALL >= aiY && ball.y <= aiY + PADDLE_H) {
+    const hit = ((ball.y + BALL / 2) - (aiY + PADDLE_H / 2)) / (PADDLE_H / 2);
+    ball.vy = hit * 4.5;
+    ball.vx = -Math.min(Math.abs(ball.vx) * 1.05, 9);
+    ball.x = AI_X - BALL - 1;
   }
 
-  // reset if missed
-  if(ball.x < -20 || ball.x > 520){
-    reset();
+  if (ball.x < -20) {
+    aiScore++;
+    updateScores();
+    if (aiScore >= WIN_SCORE) { endGame(false); return; }
+    serve(1);
+  } else if (ball.x > W + 20) {
+    playerScore++;
+    updateScores();
+    if (playerScore >= WIN_SCORE) { endGame(true); return; }
+    serve(-1);
   }
 }
 
-// DRAW
 function draw(){
-  ctx.clearRect(0,0,500,300);
+  ctx.fillStyle = '#060809';
+  ctx.fillRect(0, 0, W, H);
 
-  // ball
-  ctx.fillStyle="black";
-  ctx.fillRect(ball.x, ball.y, 10, 10);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.setLineDash([6, 10]);
+  ctx.beginPath();
+  ctx.moveTo(W / 2, 0);
+  ctx.lineTo(W / 2, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
-  // paddle
-  ctx.fillRect(20, paddle.y, 10, 80);
+  ctx.fillStyle = '#2dd4f0';
+  ctx.shadowColor = '#2dd4f0';
+  ctx.shadowBlur = 6;
+  ctx.fillRect(PLAYER_X, playerY, PADDLE_W, PADDLE_H);
+
+  ctx.fillStyle = '#ff3d7f';
+  ctx.shadowColor = '#ff3d7f';
+  ctx.fillRect(AI_X, aiY, PADDLE_W, PADDLE_H);
+
+  ctx.fillStyle = '#ffce45';
+  ctx.shadowColor = '#ffce45';
+  ctx.fillRect(ball.x, ball.y, BALL, BALL);
+  ctx.shadowBlur = 0;
 }
 
-// LOOP
 function loop(){
-  update();
+  if (running) update();
   draw();
   requestAnimationFrame(loop);
 }
+
+document.getElementById('restart').addEventListener('click', reset);
+document.getElementById('restartTop').addEventListener('click', reset);
 
 reset();
 loop();

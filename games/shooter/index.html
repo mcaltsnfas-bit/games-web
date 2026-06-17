@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%95%B9%EF%B8%8F</text></svg>">
+<title>Star Defender — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<div class="game-topbar">
+  <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+  <span class="game-topbar__brand">WEB ARCADE</span>
+</div>
+
+<main class="game-shell">
+  <h2>Star Defender</h2>
+  <p class="game-shell__hint">Arrow keys / A-D (or drag) to move, space or tap to fire. Survive the waves.</p>
+
+  <div class="scoreboard">
+    <div class="scoreboard__item">Score<b id="score">0</b></div>
+    <div class="scoreboard__item">Lives<b id="lives">3</b></div>
+    <div class="scoreboard__item">Best<b id="best">0</b></div>
+  </div>
+
+  <div class="game-stage">
+    <canvas id="game" width="420" height="520"></canvas>
+    <div class="game-overlay" id="overlay">
+      <div class="game-overlay__title" id="overlayTitle">Game over</div>
+      <div class="game-overlay__detail" id="overlayDetail">Score: 0</div>
+      <button class="btn btn--solid" id="restart">Play again</button>
+    </div>
+  </div>
+
+  <div class="game-controls">
+    <button class="btn" id="restartTop">New game</button>
+  </div>
+</main>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const bestEl = document.getElementById('best');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlayTitle');
+const overlayDetail = document.getElementById('overlayDetail');
+
+const BEST_KEY = 'arcade.shooter.best';
+function getBest(){ try { return parseInt(localStorage.getItem(BEST_KEY) || '0', 10); } catch(e){ return 0; } }
+function setBest(v){ try { localStorage.setItem(BEST_KEY, String(v)); } catch(e){} }
+bestEl.textContent = getBest();
+
+const SHIP_W = 30, SHIP_H = 18, SHIP_Y = H - 40;
+const ENEMY_W = 28, ENEMY_H = 18;
+const ROWS = 3, COLS = 6;
+const ENEMY_GAP_X = 14, ENEMY_GAP_Y = 16;
+const ROW_COLORS = ['#ff3d7f', '#c34fae', '#2dd4f0'];
+const FIRE_COOLDOWN = 16; // frames
+const PLAYER_SPEED = 5;
+
+let shipX, bullets, enemyBullets, enemies, formation, score, lives, wave, running, fireTimer, invuln;
+
+function buildWave(){
+  const list = [];
+  const totalW = COLS * ENEMY_W + (COLS - 1) * ENEMY_GAP_X;
+  const startX = (W - totalW) / 2;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      list.push({
+        baseX: startX + c * (ENEMY_W + ENEMY_GAP_X),
+        baseY: 40 + r * (ENEMY_H + ENEMY_GAP_Y),
+        alive: true,
+        color: ROW_COLORS[r % ROW_COLORS.length],
+        points: (ROWS - r) * 10
+      });
+    }
+  }
+  return list;
+}
+
+function newWave(){
+  enemies = buildWave();
+  formation = { x: 0, y: 0, dir: 1, speed: 1 + wave * 0.25 };
+}
+
+function newGame(){
+  shipX = W / 2 - SHIP_W / 2;
+  bullets = [];
+  enemyBullets = [];
+  score = 0;
+  lives = 3;
+  wave = 1;
+  running = true;
+  fireTimer = 0;
+  invuln = 0;
+  scoreEl.textContent = score;
+  livesEl.textContent = lives;
+  overlay.classList.remove('is-visible');
+  newWave();
+}
+
+function enemyRect(e){
+  return { x: e.baseX + formation.x, y: e.baseY + formation.y, w: ENEMY_W, h: ENEMY_H };
+}
+
+function fire(){
+  if (!running || fireTimer > 0) return;
+  bullets.push({ x: shipX + SHIP_W / 2 - 2, y: SHIP_Y - 8 });
+  fireTimer = FIRE_COOLDOWN;
+}
+
+const keys = {};
+document.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowleft', 'arrowright', 'a', 'd'].includes(k)) { keys[k] = true; e.preventDefault(); }
+  if (e.key === ' ') { e.preventDefault(); fire(); }
+});
+document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); fire(); }, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  shipX = (e.touches[0].clientX - rect.left) * scale - SHIP_W / 2;
+  clampShip();
+}, { passive: false });
+
+function clampShip(){
+  if (shipX < 0) shipX = 0;
+  if (shipX > W - SHIP_W) shipX = W - SHIP_W;
+}
+
+function endGame(){
+  running = false;
+  const best = Math.max(score, getBest());
+  setBest(best);
+  bestEl.textContent = best;
+  overlayTitle.textContent = 'Game over';
+  overlayDetail.textContent = 'Score: ' + score + ' \u00b7 Reached wave ' + wave;
+  overlay.classList.add('is-visible');
+}
+
+function update(){
+  if (fireTimer > 0) fireTimer--;
+  if (invuln > 0) invuln--;
+
+  if (keys['arrowleft'] || keys['a']) shipX -= PLAYER_SPEED;
+  if (keys['arrowright'] || keys['d']) shipX += PLAYER_SPEED;
+  clampShip();
+
+  // formation movement (classic side-to-side, step down on edge)
+  formation.x += formation.dir * formation.speed;
+  const alive = enemies.filter((e) => e.alive);
+  if (alive.length) {
+    const minX = Math.min(...alive.map((e) => e.baseX)) + formation.x;
+    const maxX = Math.max(...alive.map((e) => e.baseX)) + ENEMY_W + formation.x;
+    if (maxX >= W || minX <= 0) {
+      formation.dir *= -1;
+      formation.y += 18;
+      formation.speed += 0.15;
+    }
+  }
+
+  // enemies reaching the player's row ends the game
+  if (alive.some((e) => e.baseY + formation.y + ENEMY_H >= SHIP_Y)) {
+    endGame();
+    return;
+  }
+
+  // player bullets
+  bullets.forEach((b) => { b.y -= 7; });
+  bullets = bullets.filter((b) => b.y > -10);
+
+  // enemy bullets
+  enemyBullets.forEach((b) => { b.y += 4; });
+  enemyBullets = enemyBullets.filter((b) => b.y < H + 10);
+
+  // random enemy fire
+  if (alive.length && Math.random() < 0.012 + wave * 0.002) {
+    const shooter = alive[Math.floor(Math.random() * alive.length)];
+    const r = enemyRect(shooter);
+    enemyBullets.push({ x: r.x + r.w / 2 - 2, y: r.y + r.h });
+  }
+
+  // bullet vs enemy
+  for (const b of bullets) {
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const r = enemyRect(e);
+      if (b.x > r.x && b.x < r.x + r.w && b.y > r.y && b.y < r.y + r.h) {
+        e.alive = false;
+        b.y = -999; // mark bullet consumed
+        score += e.points;
+        scoreEl.textContent = score;
+        break;
+      }
+    }
+  }
+  bullets = bullets.filter((b) => b.y > -100);
+
+  // enemy bullet vs player
+  if (invuln <= 0) {
+    for (const b of enemyBullets) {
+      if (b.x > shipX && b.x < shipX + SHIP_W && b.y > SHIP_Y && b.y < SHIP_Y + SHIP_H) {
+        b.y = H + 999;
+        lives--;
+        livesEl.textContent = lives;
+        invuln = 60;
+        if (lives <= 0) { endGame(); return; }
+        break;
+      }
+    }
+    enemyBullets = enemyBullets.filter((b) => b.y < H + 100);
+  }
+
+  if (enemies.every((e) => !e.alive)) {
+    wave++;
+    score += 50;
+    scoreEl.textContent = score;
+    newWave();
+  }
+}
+
+function draw(){
+  ctx.fillStyle = '#060809';
+  ctx.fillRect(0, 0, W, H);
+
+  // starfield
+  ctx.fillStyle = 'rgba(238,241,246,0.25)';
+  for (let i = 0; i < 40; i++) {
+    const x = (i * 53) % W;
+    const y = (i * 97 + (wave * 13)) % H;
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  enemies.forEach((e) => {
+    if (!e.alive) return;
+    const r = enemyRect(e);
+    ctx.fillStyle = e.color;
+    ctx.shadowColor = e.color;
+    ctx.shadowBlur = 5;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.shadowBlur = 0;
+  });
+
+  ctx.fillStyle = '#ffce45';
+  bullets.forEach((b) => ctx.fillRect(b.x, b.y, 4, 10));
+
+  ctx.fillStyle = '#ff3d7f';
+  enemyBullets.forEach((b) => ctx.fillRect(b.x, b.y, 4, 10));
+
+  if (invuln <= 0 || Math.floor(invuln / 5) % 2 === 0) {
+    ctx.fillStyle = '#2dd4f0';
+    ctx.shadowColor = '#2dd4f0';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(shipX + SHIP_W / 2, SHIP_Y);
+    ctx.lineTo(shipX, SHIP_Y + SHIP_H);
+    ctx.lineTo(shipX + SHIP_W, SHIP_Y + SHIP_H);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function loop(){
+  if (running) update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('restart').addEventListener('click', newGame);
+document.getElementById('restartTop').addEventListener('click', newGame);
+
+newGame();
+loop();
+</script>
+
+</body>
+</html>

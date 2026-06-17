@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+  <defs>
+    <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#ffffff" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="240" fill="#0a0d14"/>
+  <rect width="400" height="240" fill="url(#dots)"/>
+
+  <!-- snake body: winding rounded squares -->
+  <g>
+    <rect x="60" y="170" width="26" height="26" rx="5" fill="#2dd4f0"/>
+    <rect x="86" y="170" width="26" height="26" rx="5" fill="#2dd4f0"/>
+    <rect x="112" y="170" width="26" height="26" rx="5" fill="#2dd4f0"/>
+    <rect x="112" y="144" width="26" height="26" rx="5" fill="#2dd4f0"/>
+    <rect x="112" y="118" width="26" height="26" rx="5" fill="#2dd4f0"/>
+    <rect x="138" y="118" width="26" height="26" rx="5" fill="#2dd4f0"/>
+    <rect x="164" y="118" width="26" height="26" rx="5" fill="#2dd4f0"/>
+    <rect x="164" y="92" width="26" height="26" rx="6" fill="#3ee08a"/>
+    <!-- eyes on the head -->
+    <circle cx="174" cy="100" r="2.6" fill="#060809"/>
+    <circle cx="186" cy="100" r="2.6" fill="#060809"/>
+  </g>
+
+  <!-- food -->
+  <rect x="240" y="70" width="22" height="22" rx="5" fill="#ff3d7f"/>
+  <circle cx="251" cy="81" r="18" fill="#ff3d7f" opacity="0.18"/>
+</svg>

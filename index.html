@@ -3,44 +3,133 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mcalts Games</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%95%B9%EF%B8%8F</text></svg>">
+  <title>Web Arcade</title>
+  <meta name="description" content="A small hand-built collection of browser games — snake, pong, 2048, memory, breakout and more.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header class="header">
-  <h1>Web Arcade</h1>
-  <p>Simple browser games for learning and fun</p>
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    <span>HIGH SCORE CHALLENGE</span>
+    <span>★</span>
+    <span>8 GAMES · 0 ADS · 0 INSTALLS</span>
+    <span>★</span>
+    <span>INSERT COIN TO CONTINUE</span>
+    <span>★</span>
+    <span>PRESS START</span>
+    <span>★</span>
+  </div>
+</div>
 
-  <input id="search" placeholder="Search games...">
+<header class="header">
+  <p class="header__eyebrow">PLAYER ONE READY</p>
+  <h1>WEB ARCADE</h1>
+  <p>Eight small browser games, built and rebuilt by hand. No installs, no accounts — just press play.</p>
+
+  <div class="controls">
+    <input id="search" placeholder="Search the cabinet..." aria-label="Search games">
+    <button id="surprise" class="btn">🎲 Surprise me</button>
+  </div>
 </header>
 
-<section class="section-title">🔥 Trending</section>
+<nav class="filters" aria-label="Filter games by category">
+  <button class="chip is-active" data-category="all">All</button>
+  <button class="chip" data-category="classic">Classic</button>
+  <button class="chip" data-category="puzzle">Puzzle</button>
+  <button class="chip" data-category="arcade">Arcade</button>
+  <button class="chip" data-category="strategy">Strategy</button>
+</nav>
+
+<section class="section-title">Game library</section>
 
 <section class="grid" id="games">
 
-  <a href="games/snake/" class="card" data-name="snake arcade">
-    <img src="games/snake/thumbnail.png">
-    <span>Snake</span>
+  <a href="games/snake/" class="card" data-name="snake classic" data-category="classic">
+    <div class="card__screen"><img src="games/snake/thumbnail.svg" alt="Snake game thumbnail"></div>
+    <div class="card__body">
+      <span class="card__title">Snake</span>
+      <span class="card__tag">Classic</span>
+    </div>
   </a>
 
-  <a href="games/pong/" class="card" data-name="pong arcade">
-    <img src="games/pong/thumbnail.png">
-    <span>Pong</span>
+  <a href="games/pong/" class="card" data-name="pong classic" data-category="classic">
+    <div class="card__screen"><img src="games/pong/thumbnail.svg" alt="Pong game thumbnail"></div>
+    <div class="card__body">
+      <span class="card__title">Pong</span>
+      <span class="card__tag">Classic</span>
+    </div>
   </a>
 
-  <a href="games/tictactoe/" class="card" data-name="tic tac toe logic">
-    <img src="games/tictactoe/thumbnail.png">
-    <span>Tic Tac Toe</span>
+  <a href="games/tictactoe/" class="card" data-name="tic tac toe strategy" data-category="strategy">
+    <div class="card__screen"><img src="games/tictactoe/thumbnail.svg" alt="Tic-tac-toe game thumbnail"></div>
+    <div class="card__body">
+      <span class="card__title">Tic-Tac-Toe</span>
+      <span class="card__tag">Strategy</span>
+    </div>
+  </a>
+
+  <a href="games/2048/" class="card" data-name="2048 puzzle" data-category="puzzle">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/2048/thumbnail.svg" alt="2048 game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">2048</span>
+      <span class="card__tag">Puzzle</span>
+    </div>
+  </a>
+
+  <a href="games/memory/" class="card" data-name="memory match puzzle" data-category="puzzle">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/memory/thumbnail.svg" alt="Memory match game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Memory Match</span>
+      <span class="card__tag">Puzzle</span>
+    </div>
+  </a>
+
+  <a href="games/breakout/" class="card" data-name="breakout brick breaker arcade" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/breakout/thumbnail.svg" alt="Breakout game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Breakout</span>
+      <span class="card__tag">Arcade</span>
+    </div>
+  </a>
+
+  <a href="games/dodger/" class="card" data-name="sky dodger flappy arcade" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/dodger/thumbnail.svg" alt="Sky Dodger game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Sky Dodger</span>
+      <span class="card__tag">Arcade</span>
+    </div>
+  </a>
+
+  <a href="games/shooter/" class="card" data-name="star defender shooter arcade" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/shooter/thumbnail.svg" alt="Star Defender game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Star Defender</span>
+      <span class="card__tag">Arcade</span>
+    </div>
   </a>
 
 </section>
 
-<section class="section-title">🧠 All Games</section>
-
-<section class="grid" id="games2">
-  <!-- duplicate or extend here later -->
-</section>
+<footer class="site-footer">
+  Built with HTML, CSS &amp; vanilla JS — open source on GitHub.
+</footer>
 
 <script src="script.js"></script>
 </body>

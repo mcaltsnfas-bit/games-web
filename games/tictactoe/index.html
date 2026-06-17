@@ -1,121 +1,179 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Tic Tac Toe</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%95%B9%EF%B8%8F</text></svg>">
+<title>Tic-Tac-Toe — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
 <style>
-body {
-  font-family:Arial;
-  text-align:center;
-  background:#111;
-  color:white;
-}
-
-.grid {
-  display:grid;
-  grid-template-columns:repeat(3,100px);
-  justify-content:center;
-  margin-top:40px;
-}
-
-.cell {
-  width:100px;
-  height:100px;
-  border:1px solid white;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:30px;
-  cursor:pointer;
-}
-
-button { margin-top:20px; padding:10px; }
+  #board { grid-template-columns: repeat(3, 92px); }
+  .tile { width: 92px; height: 92px; font-size: 42px; font-family: var(--font-mono); font-weight: 700; }
+  .tile.x { color: var(--cyan); text-shadow: 0 0 10px rgba(45,212,240,0.6); }
+  .tile.o { color: var(--magenta); text-shadow: 0 0 10px rgba(255,61,127,0.6); }
+  .tile.win { border-color: var(--amber); box-shadow: 0 0 16px rgba(255,206,69,0.5); }
 </style>
 </head>
 <body>
 
-<h2>Tic Tac Toe (vs AI)</h2>
+<div class="game-topbar">
+  <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+  <span class="game-topbar__brand">WEB ARCADE</span>
+</div>
 
-<div class="grid" id="grid"></div>
-<button onclick="reset()">Restart</button>
+<main class="game-shell">
+  <h2>Tic-Tac-Toe</h2>
+  <p class="game-shell__hint">You're X, the computer is O — and it actually plays to win. Beat it or force a draw.</p>
+
+  <div class="scoreboard">
+    <div class="scoreboard__item">Wins<b id="wins">0</b></div>
+    <div class="scoreboard__item">Losses<b id="losses">0</b></div>
+    <div class="scoreboard__item">Draws<b id="draws">0</b></div>
+  </div>
+
+  <div class="game-stage">
+    <div class="grid-board" id="board"></div>
+    <div class="game-overlay" id="overlay">
+      <div class="game-overlay__title" id="overlayTitle">You win!</div>
+      <div class="game-overlay__detail" id="overlayDetail">Press play again for a rematch.</div>
+      <button class="btn btn--solid" id="restart">Play again</button>
+    </div>
+  </div>
+</main>
 
 <script>
-let board = [];
-let gameOver = false;
-let aiThinking = false;
+const boardEl = document.getElementById('board');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlayTitle');
+const overlayDetail = document.getElementById('overlayDetail');
+const winsEl = document.getElementById('wins');
+const lossesEl = document.getElementById('losses');
+const drawsEl = document.getElementById('draws');
 
-const grid = document.getElementById("grid");
-
-function reset(){
-  board = Array(9).fill("");
-  gameOver = false;
-  aiThinking = false;
-  render();
+const STATS_KEY = 'arcade.tictactoe.stats';
+function getStats(){
+  try { return JSON.parse(localStorage.getItem(STATS_KEY)) || { wins: 0, losses: 0, draws: 0 }; }
+  catch(e){ return { wins: 0, losses: 0, draws: 0 }; }
 }
+function saveStats(s){ try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch(e){} }
 
-function checkWin(b){
-  const win = [
-    [0,1,2],[3,4,5],[6,7,8],
-    [0,3,6],[1,4,7],[2,5,8],
-    [0,4,8],[2,4,6]
-  ];
+let stats = getStats();
+let board, gameOver, aiThinking;
 
-  return win.some(c =>
-    b[c[0]] &&
-    b[c[0]] === b[c[1]] &&
-    b[c[1]] === b[c[2]]
-  );
+function updateStatsDisplay(){
+  winsEl.textContent = stats.wins;
+  lossesEl.textContent = stats.losses;
+  drawsEl.textContent = stats.draws;
 }
+updateStatsDisplay();
 
-function aiMove(){
-  if(gameOver) return;
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-  let empty = board
-    .map((v,i)=>v===""?i:null)
-    .filter(v=>v!==null);
-
-  if(empty.length === 0) return;
-
-  let move = empty[Math.floor(Math.random()*empty.length)];
-  board[move] = "O";
-
-  if(checkWin(board)){
-    gameOver = true;
-    setTimeout(()=>alert("Computer wins!"),100);
+function winner(b){
+  for (const line of LINES) {
+    const [a, c, d] = line;
+    if (b[a] && b[a] === b[c] && b[c] === b[d]) return { mark: b[a], line };
   }
-
-  aiThinking = false;
-  render();
+  return null;
 }
 
-function click(i){
-  if(board[i] || gameOver || aiThinking) return;
+function emptyIndices(b){
+  return b.map((v, i) => (v === '' ? i : null)).filter((v) => v !== null);
+}
 
-  board[i] = "X";
+function minimax(b, player){
+  const win = winner(b);
+  if (win) return { score: win.mark === 'O' ? 10 : -10 };
+  const empties = emptyIndices(b);
+  if (empties.length === 0) return { score: 0 };
 
-  if(checkWin(board)){
-    gameOver = true;
-    render();
-    setTimeout(()=>alert("You win!"),100);
-    return;
+  const moves = empties.map((idx) => {
+    b[idx] = player;
+    const result = minimax(b, player === 'O' ? 'X' : 'O');
+    b[idx] = '';
+    return { idx, score: result.score };
+  });
+
+  if (player === 'O') {
+    const best = Math.max(...moves.map((m) => m.score));
+    const candidates = moves.filter((m) => m.score === best);
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  } else {
+    const best = Math.min(...moves.map((m) => m.score));
+    return moves.find((m) => m.score === best);
   }
-
-  aiThinking = true;
-  render();
-
-  setTimeout(aiMove, 300);
 }
 
 function render(){
-  grid.innerHTML = "";
-
-  board.forEach((v,i)=>{
-    const d = document.createElement("div");
-    d.className = "cell";
-    d.innerText = v;
-    d.onclick = () => click(i);
-    grid.appendChild(d);
+  boardEl.innerHTML = '';
+  board.forEach((v, i) => {
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (v === 'X' ? ' x' : v === 'O' ? ' o' : '');
+    tile.textContent = v;
+    tile.addEventListener('click', () => handleClick(i));
+    boardEl.appendChild(tile);
   });
 }
+
+function highlightLine(line){
+  const tiles = boardEl.children;
+  line.forEach((i) => tiles[i].classList.add('win'));
+}
+
+function finish(outcome, line){
+  gameOver = true;
+  if (line) highlightLine(line);
+
+  if (outcome === 'win') {
+    stats.wins++;
+    overlayTitle.textContent = 'You win!';
+    overlayDetail.textContent = 'Nice — the computer rarely slips up.';
+  } else if (outcome === 'lose') {
+    stats.losses++;
+    overlayTitle.textContent = 'Computer wins';
+    overlayDetail.textContent = 'Press play again for a rematch.';
+  } else {
+    stats.draws++;
+    overlayTitle.textContent = "It's a draw";
+    overlayDetail.textContent = 'Perfectly played by both sides.';
+  }
+  saveStats(stats);
+  updateStatsDisplay();
+  setTimeout(() => overlay.classList.add('is-visible'), 450);
+}
+
+function handleClick(i){
+  if (board[i] || gameOver || aiThinking) return;
+
+  board[i] = 'X';
+  render();
+
+  const playerWin = winner(board);
+  if (playerWin) { finish('win', playerWin.line); return; }
+  if (emptyIndices(board).length === 0) { finish('draw'); return; }
+
+  aiThinking = true;
+  setTimeout(() => {
+    const result = minimax(board.slice(), 'O');
+    if (result && result.idx !== undefined) board[result.idx] = 'O';
+    render();
+    aiThinking = false;
+
+    const aiWin = winner(board);
+    if (aiWin) { finish('lose', aiWin.line); return; }
+    if (emptyIndices(board).length === 0) { finish('draw'); return; }
+  }, 350);
+}
+
+function reset(){
+  board = Array(9).fill('');
+  gameOver = false;
+  aiThinking = false;
+  overlay.classList.remove('is-visible');
+  render();
+}
+
+document.getElementById('restart').addEventListener('click', reset);
 
 reset();
 </script>

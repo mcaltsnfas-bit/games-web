@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+  <defs>
+    <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#ffffff" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="240" fill="#0a0d14"/>
+  <rect width="400" height="240" fill="url(#dots)"/>
+
+  <!-- card grid, face down -->
+  <g>
+    <rect x="70" y="40" width="56" height="56" rx="8" fill="#161c28" stroke="#2a3142" stroke-width="2"/>
+    <rect x="136" y="40" width="56" height="56" rx="8" fill="#161c28" stroke="#2a3142" stroke-width="2"/>
+    <rect x="70" y="106" width="56" height="56" rx="8" fill="#161c28" stroke="#2a3142" stroke-width="2"/>
+    <rect x="202" y="106" width="56" height="56" rx="8" fill="#161c28" stroke="#2a3142" stroke-width="2"/>
+    <rect x="268" y="40" width="56" height="56" rx="8" fill="#161c28" stroke="#2a3142" stroke-width="2"/>
+    <rect x="268" y="106" width="56" height="56" rx="8" fill="#161c28" stroke="#2a3142" stroke-width="2"/>
+    <rect x="136" y="172" width="56" height="56" rx="8" fill="#161c28" stroke="#2a3142" stroke-width="2"/>
+  </g>
+
+  <!-- flipped card: star -->
+  <g>
+    <rect x="202" y="40" width="56" height="56" rx="8" fill="#1c2336" stroke="#3ee08a" stroke-width="2"/>
+    <path d="M230 52 L235 65 L249 65 L238 73 L242 87 L230 78 L218 87 L222 73 L211 65 L225 65 Z" fill="#ffce45"/>
+  </g>
+
+  <!-- flipped card: circle pair (cherry-like) -->
+  <g>
+    <rect x="70" y="172" width="56" height="56" rx="8" fill="#1c2336" stroke="#ff3d7f" stroke-width="2"/>
+    <circle cx="90" cy="208" r="8" fill="#ff3d7f"/>
+    <circle cx="106" cy="200" r="8" fill="#ff3d7f"/>
+    <path d="M92 196 Q96 178 110 174" stroke="#3ee08a" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>
