@@ -508,3 +508,15 @@ a { color: inherit; }
   .header h1 { font-size: 24px; }
   .game-shell { padding: 26px 14px 50px; }
 }
+
+/* Neon Duel live multiplayer badge */
+.card__badge--live {
+  background: var(--green);
+  color: #0a2218;
+  animation: badge-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--green-dim); }
+  50% { box-shadow: 0 0 0 5px transparent; }
+}
