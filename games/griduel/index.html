@@ -9,7 +9,8 @@
   body { overflow:hidden; }
   .gd-wrap { display:flex; flex-direction:column; height:100vh; }
   .gd-stage { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; background:#060809; }
-  canvas { display:block; image-rendering:pixelated; cursor:crosshair; }
+  canvas { display:block; image-rendering:pixelated; cursor:crosshair; pointer-events:none; }
+  canvas.active { pointer-events:auto; }
 
   /* lobby */
   .lobby { position:absolute; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; background:rgba(6,8,9,0.92); }
@@ -237,7 +238,9 @@ function bulletStep(b) {
 }
 
 /* ---------- input ---------- */
-document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+// Guard: never intercept keys when the user is typing in an input
+function inTextField() { const t = document.activeElement && document.activeElement.tagName; return t === 'INPUT' || t === 'TEXTAREA'; }
+document.addEventListener('keydown', e => { if (!inTextField()) keys[e.key.toLowerCase()] = true; });
 document.addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
 
 canvas.addEventListener('mousemove', e => { const p = toCanvas(e.clientX, e.clientY); mouseX = p.x; mouseY = p.y; });
@@ -257,6 +260,7 @@ canvas.addEventListener('contextmenu', e => {
 });
 
 document.addEventListener('keydown', e => {
+  if (inTextField()) return; // never fire game shortcuts while typing
   if (e.key.toLowerCase() === 'e' && matchActive && me.alive) toggleBuild();
   if (e.key === ' ') { e.preventDefault(); if (matchActive && me.alive && !me.building) shoot(); }
 });
@@ -530,6 +534,7 @@ function handleOppElim() {
 function startMatch() {
   lobby.style.display = 'none';
   hud.style.display = 'block';
+  canvas.classList.add('active'); // enable pointer events now lobby is gone
   subscribeRoom();
   beginRound();
 }
