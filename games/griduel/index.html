@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grid Duel — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  body { overflow:hidden; }
+  .gd-wrap { display:flex; flex-direction:column; height:100vh; }
+  .gd-stage { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; background:#060809; }
+  canvas { display:block; image-rendering:pixelated; cursor:crosshair; }
+
+  /* lobby */
+  .lobby { position:absolute; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; background:rgba(6,8,9,0.92); }
+  .lobby__card { background:var(--bg-panel); border:1px solid var(--border-strong); border-radius:var(--radius); padding:28px 26px; max-width:360px; width:100%; text-align:center; }
+  .lobby__title { font-family:var(--font-display); font-size:14px; color:var(--cyan); text-shadow:0 0 10px rgba(45,212,240,0.5); margin-bottom:8px; }
+  .lobby__sub { font-size:12px; color:var(--ink-dim); margin-bottom:20px; line-height:1.55; }
+  .lobby__code { font-family:var(--font-display); font-size:28px; color:var(--green); background:var(--bg-recess); border:1px solid var(--border-strong); border-radius:var(--radius-sm); padding:14px; margin:12px 0; letter-spacing:0.14em; }
+  .lobby__row { display:flex; gap:8px; margin-bottom:10px; }
+  .lobby__row input { flex:1; min-width:0; background:var(--bg-recess); border:1px solid var(--border-strong); border-radius:var(--radius-sm); color:var(--ink); font-family:var(--font-mono); padding:10px 12px; font-size:15px; text-align:center; letter-spacing:0.12em; text-transform:uppercase; }
+  .lobby__divider { color:var(--ink-faint); font-size:11px; margin:14px 0; text-transform:uppercase; letter-spacing:0.08em; }
+  .lobby__status { font-family:var(--font-mono); font-size:12px; color:var(--amber); margin-top:12px; min-height:18px; }
+  .lobby__err { color:var(--magenta); font-size:12px; min-height:16px; margin-top:6px; }
+  .lobby .btn { width:100%; margin-top:6px; }
+
+  /* hud */
+  .hud { position:absolute; inset:0; pointer-events:none; z-index:3; }
+  .hud__bars { position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+  .hud__player { width:44%; }
+  .hud__label { font-family:var(--font-mono); font-size:10px; color:var(--ink-dim); margin-bottom:3px; letter-spacing:0.07em; }
+  .hud__hp { height:8px; border-radius:4px; background:rgba(255,255,255,0.07); border:1px solid var(--border-strong); overflow:hidden; }
+  .hud__hpfill { height:100%; transition:width 0.1s; background:var(--cyan); }
+  .hud__player--opp .hud__hpfill { background:var(--magenta); }
+  .hud__ammo { font-family:var(--font-mono); font-size:10px; color:var(--amber); margin-top:4px; }
+  .hud__mode { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); font-family:var(--font-mono); font-size:11px; color:var(--ink-dim); background:rgba(6,8,9,0.75); padding:4px 10px; border-radius:20px; border:1px solid var(--border-strong); }
+  .hud__cd { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-family:var(--font-display); font-size:52px; color:var(--cyan); text-shadow:0 0 24px rgba(45,212,240,0.7); }
+
+  /* end overlay */
+  .end-overlay { position:absolute; inset:0; z-index:8; display:flex; align-items:center; justify-content:center; background:rgba(6,8,9,0.8); opacity:0; pointer-events:none; transition:opacity 0.25s; }
+  .end-overlay.show { opacity:1; pointer-events:auto; }
+  .end-card { text-align:center; }
+  .end-title { font-family:var(--font-display); font-size:28px; margin-bottom:8px; }
+  .end-detail { font-family:var(--font-mono); font-size:12px; color:var(--ink-dim); margin-bottom:20px; }
+  .end-row { display:flex; gap:10px; justify-content:center; }
+  .conn-badge { font-family:var(--font-mono); font-size:10px; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="gd-wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">WEB ARCADE</span>
+    <span class="conn-badge" id="connBadge">OFFLINE</span>
+  </div>
+
+  <div class="gd-stage" id="stage">
+    <!-- lobby -->
+    <div class="lobby" id="lobby">
+      <div class="lobby__card">
+        <div class="lobby__title">GRID DUEL</div>
+        <div class="lobby__sub">1v1 build-and-shoot. Create a room and share the code, or enter a friend's code. Both of you need this page open at the same time.</div>
+        <button class="btn btn--solid" id="createBtn">Create room</button>
+        <div id="hostPanel" style="display:none">
+          <div class="lobby__code" id="codeDisplay"></div>
+          <button class="btn" id="copyBtn">Copy invite link</button>
+        </div>
+        <div class="lobby__divider">— or join —</div>
+        <div class="lobby__row">
+          <input id="joinInput" placeholder="ROOM CODE" maxlength="5">
+          <button class="btn" id="joinBtn">Join</button>
+        </div>
+        <div class="lobby__status" id="status"></div>
+        <div class="lobby__err" id="errMsg"></div>
+      </div>
+    </div>
+
+    <!-- game canvas -->
+    <canvas id="game"></canvas>
+
+    <!-- hud (hidden until match) -->
+    <div class="hud" id="hud" style="display:none">
+      <div class="hud__bars">
+        <div class="hud__player">
+          <div class="hud__label">YOU</div>
+          <div class="hud__hp"><div class="hud__hpfill" id="hpMe" style="width:100%"></div></div>
+          <div class="hud__ammo" id="wallsLeft"></div>
+        </div>
+        <div class="hud__player hud__player--opp" style="text-align:right">
+          <div class="hud__label" style="text-align:right">OPPONENT</div>
+          <div class="hud__hp"><div class="hud__hpfill" id="hpOpp" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div class="hud__mode" id="modeLabel">🔫 SHOOT — right-click or [E] to BUILD</div>
+      <div class="hud__cd" id="countdown" style="display:none"></div>
+    </div>
+
+    <!-- end overlay -->
+    <div class="end-overlay" id="endOverlay">
+      <div class="end-card">
+        <div class="end-title" id="endTitle"></div>
+        <div class="end-detail" id="endDetail"></div>
+        <div class="end-row">
+          <button class="btn btn--solid" id="rematchBtn">Rematch</button>
+          <a class="btn" href="../../index.html">Back to Arcade</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase compat SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script>
+/* ============================================================
+   GRID DUEL — 1v1 build-and-shoot with Firebase multiplayer
+   ============================================================ */
+
+/* ---------- Firebase init ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyB7kuBUtByYa9QVnc5DiTYgRvohWB02L6w",
+  authDomain: "games-web-8ce11.firebaseapp.com",
+  databaseURL: "https://games-web-8ce11-default-rtdb.firebaseio.com",
+  projectId: "games-web-8ce11",
+  storageBucket: "games-web-8ce11.firebasestorage.app",
+  messagingSenderId: "507087897615",
+  appId: "1:507087897615:web:7a3bb6f03883d09b5d4f7a"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ---------- constants ---------- */
+const CELL = 20, COLS = 40, ROWS = 24;
+const W = COLS * CELL, H = ROWS * CELL;   // 800 x 480
+const PLAYER_R = 14, PLAYER_SPEED = 170;
+const BULLET_R = 3, BULLET_SPEED = 380, BULLET_RANGE = 560;
+const HIT_DMG = 25;         // 4 shots to kill
+const MAX_WALLS = 10;       // walls per player
+const FIRE_CD = 0.32;       // seconds between shots
+const CYAN = '#2dd4f0', MAGENTA = '#ff3d7f', AMBER = '#ffce45', GREEN = '#3ee08a';
+
+/* ---------- DOM ---------- */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+const lobby = document.getElementById('lobby');
+const hud = document.getElementById('hud');
+const connBadge = document.getElementById('connBadge');
+const statusEl = document.getElementById('status');
+const errEl = document.getElementById('errMsg');
+const hpMeEl = document.getElementById('hpMe');
+const hpOppEl = document.getElementById('hpOpp');
+const wallsLeftEl = document.getElementById('wallsLeft');
+const modeLabelEl = document.getElementById('modeLabel');
+const cdEl = document.getElementById('countdown');
+const endOverlay = document.getElementById('endOverlay');
+const endTitle = document.getElementById('endTitle');
+const endDetail = document.getElementById('endDetail');
+
+/* ---------- canvas sizing ---------- */
+function resize() {
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const scale = Math.min(sw / W, sh / H, 1);
+  canvas.style.width  = (W * scale) + 'px';
+  canvas.style.height = (H * scale) + 'px';
+  canvas.width = W; canvas.height = H;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function toCanvas(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (clientX - r.left) * (W / r.width), y: (clientY - r.top) * (H / r.height) };
+}
+
+/* ---------- game state ---------- */
+let myRole = '', roomCode = '';
+let roomRef = null;
+let matchActive = false, connectedAt = 0;
+let seenEvents = new Set();
+
+let me  = { x:0, y:0, angle:0, hp:100, alive:true, building:false, wallsLeft:MAX_WALLS };
+let opp = { x:0, y:0, angle:0, hp:100, alive:true };
+let walls = new Map();       // "cx,cy" → {owner}
+let myBullets  = [];         // {x,y,dx,dy,dist}
+let oppBullets = [];         // locally simulated from received shot events
+let mouseX = W/2, mouseY = H/2;
+let fireCd = 0;
+let keys = {};
+
+/* ---------- wall helpers ---------- */
+function hasWall(cx, cy) { return walls.has(`${cx},${cy}`); }
+
+function resolve(px, py) {
+  let x = Math.max(PLAYER_R, Math.min(W - PLAYER_R, px));
+  let y = Math.max(PLAYER_R, Math.min(H - PLAYER_R, py));
+  const cX = Math.floor(x / CELL), cY = Math.floor(y / CELL);
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const cx = cX + dx, cy = cY + dy;
+      if (!hasWall(cx, cy) || cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) continue;
+      const wx = cx * CELL, wy = cy * CELL;
+      const clX = Math.max(wx, Math.min(wx + CELL, x));
+      const clY = Math.max(wy, Math.min(wy + CELL, y));
+      const dSq = (x - clX) ** 2 + (y - clY) ** 2;
+      if (dSq >= PLAYER_R * PLAYER_R) continue;
+      if (dSq < 1e-6) {
+        const fromX = x - (wx + CELL / 2), fromY = y - (wy + CELL / 2);
+        if (Math.abs(fromX) >= Math.abs(fromY)) x = fromX > 0 ? wx + CELL + PLAYER_R : wx - PLAYER_R;
+        else y = fromY > 0 ? wy + CELL + PLAYER_R : wy - PLAYER_R;
+      } else {
+        const d = Math.sqrt(dSq);
+        x = clX + (x - clX) / d * PLAYER_R;
+        y = clY + (y - clY) / d * PLAYER_R;
+      }
+    }
+  }
+  return { x, y };
+}
+
+function bulletStep(b) {
+  const steps = Math.max(3, Math.ceil(BULLET_SPEED / 60 / CELL * 2));
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const bx = b.x + b.dx * BULLET_SPEED / 60 * t;
+    const by = b.y + b.dy * BULLET_SPEED / 60 * t;
+    if (bx < 0 || bx >= W || by < 0 || by >= H) return 'border';
+    const cx = Math.floor(bx / CELL), cy = Math.floor(by / CELL);
+    if (hasWall(cx, cy)) return 'wall:' + cx + ',' + cy;
+    if (b.checkOpp && Math.hypot(bx - opp.x, by - opp.y) < PLAYER_R + BULLET_R) return 'player';
+    if (!b.checkOpp && Math.hypot(bx - me.x, by - me.y) < PLAYER_R + BULLET_R) return 'me';
+  }
+  return null;
+}
+
+/* ---------- input ---------- */
+document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+document.addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+
+canvas.addEventListener('mousemove', e => { const p = toCanvas(e.clientX, e.clientY); mouseX = p.x; mouseY = p.y; });
+
+canvas.addEventListener('click', e => {
+  if (!matchActive || !me.alive) return;
+  if (me.building) {
+    placeWall(e);
+  } else {
+    shoot();
+  }
+});
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (matchActive && me.alive) toggleBuild();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'e' && matchActive && me.alive) toggleBuild();
+  if (e.key === ' ') { e.preventDefault(); if (matchActive && me.alive && !me.building) shoot(); }
+});
+
+function toggleBuild() {
+  me.building = !me.building;
+  modeLabelEl.textContent = me.building
+    ? '🧱 BUILD — left-click to place wall | right-click or [E] to SHOOT'
+    : '🔫 SHOOT — right-click or [E] to BUILD';
+}
+
+function shoot() {
+  if (fireCd > 0 || !me.alive) return;
+  fireCd = FIRE_CD;
+  const dx = mouseX - me.x, dy = mouseY - me.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ndx = dx / len, ndy = dy / len;
+  myBullets.push({ x: me.x + ndx * (PLAYER_R + 4), y: me.y + ndy * (PLAYER_R + 4), dx: ndx, dy: ndy, dist: 0, checkOpp: true });
+  roomRef.child('events').push({ type: 'shot', x: me.x, y: me.y, dx: ndx, dy: ndy, by: myRole, t: Date.now() });
+}
+
+function placeWall(e) {
+  if (me.wallsLeft <= 0) return;
+  const p = toCanvas(e.clientX, e.clientY);
+  const cx = Math.floor(p.x / CELL), cy = Math.floor(p.y / CELL);
+  const key = `${cx},${cy}`;
+  if (hasWall(cx, cy) || cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) return;
+  // max range check — can only build near yourself
+  if (Math.hypot(p.x - me.x, p.y - me.y) > 120) return;
+  me.wallsLeft--;
+  walls.set(key, { owner: myRole });
+  roomRef.child('walls/' + key.replace(',', '_')).set({ owner: myRole });
+}
+
+/* ---------- update ---------- */
+let lastT = 0;
+function update(ts) {
+  requestAnimationFrame(update);
+  const dt = Math.min((ts - lastT) / 1000, 0.05);
+  lastT = ts;
+
+  if (!matchActive) { draw(); return; }
+
+  // movement
+  if (me.alive) {
+    let vx = 0, vy = 0;
+    if (keys['w'] || keys['arrowup'])    vy -= 1;
+    if (keys['s'] || keys['arrowdown'])  vy += 1;
+    if (keys['a'] || keys['arrowleft'])  vx -= 1;
+    if (keys['d'] || keys['arrowright']) vx += 1;
+    const len = Math.hypot(vx, vy) || 1;
+    if (vx || vy) { vx = vx / len * PLAYER_SPEED * dt; vy = vy / len * PLAYER_SPEED * dt; }
+    const r = resolve(me.x + vx, me.y + vy);
+    me.x = r.x; me.y = r.y;
+    me.angle = Math.atan2(mouseY - me.y, mouseX - me.x);
+    if (fireCd > 0) fireCd -= dt;
+
+    // sync me to Firebase at 20fps
+    syncTimer += dt;
+    if (syncTimer >= 1 / 20) {
+      syncTimer = 0;
+      roomRef.child('players/' + myRole).set({ x: me.x, y: me.y, angle: me.angle, hp: me.hp, alive: me.alive });
+    }
+  }
+
+  // my bullets
+  for (let i = myBullets.length - 1; i >= 0; i--) {
+    const b = myBullets[i];
+    const result = bulletStep(b);
+    b.x += b.dx * BULLET_SPEED / 60;
+    b.y += b.dy * BULLET_SPEED / 60;
+    b.dist += BULLET_SPEED / 60;
+    if (result === 'player') {
+      // hit opponent — send damage event
+      roomRef.child('events').push({ type: 'hit', target: myRole === 'host' ? 'guest' : 'host', amount: HIT_DMG, by: myRole, t: Date.now() });
+      myBullets.splice(i, 1);
+    } else if (result && result.startsWith('wall:')) {
+      const key = result.slice(5);
+      walls.delete(key);
+      roomRef.child('walls/' + key.replace(',', '_')).remove();
+      myBullets.splice(i, 1);
+    } else if (result || b.dist > BULLET_RANGE) {
+      myBullets.splice(i, 1);
+    }
+  }
+
+  // opponent bullets (locally simulated)
+  for (let i = oppBullets.length - 1; i >= 0; i--) {
+    const b = oppBullets[i];
+    const result = bulletStep(b);
+    b.x += b.dx * BULLET_SPEED / 60;
+    b.y += b.dy * BULLET_SPEED / 60;
+    b.dist += BULLET_SPEED / 60;
+    if (result === 'me') {
+      // bullet hit me — damage is applied when we receive the 'hit' event from Firebase
+      oppBullets.splice(i, 1);
+    } else if (result && result.startsWith('wall:')) {
+      // visually destroy wall (Firebase update handled by opponent)
+      walls.delete(result.slice(5));
+      oppBullets.splice(i, 1);
+    } else if (result || b.dist > BULLET_RANGE) {
+      oppBullets.splice(i, 1);
+    }
+  }
+
+  updateHUD();
+  draw();
+}
+
+let syncTimer = 0;
+
+/* ---------- draw ---------- */
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0d14';
+  ctx.fillRect(0, 0, W, H);
+
+  // grid lines
+  ctx.strokeStyle = 'rgba(45,212,240,0.06)';
+  ctx.lineWidth = 0.5;
+  for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, H); ctx.stroke(); }
+  for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(W, r * CELL); ctx.stroke(); }
+
+  // walls
+  walls.forEach((data, key) => {
+    const [cx, cy] = key.split(',').map(Number);
+    ctx.fillStyle = data.owner === myRole ? 'rgba(45,212,240,0.45)' : 'rgba(255,61,127,0.45)';
+    ctx.strokeStyle = data.owner === myRole ? CYAN : MAGENTA;
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(cx * CELL + 1, cy * CELL + 1, CELL - 2, CELL - 2);
+    ctx.strokeRect(cx * CELL + 1, cy * CELL + 1, CELL - 2, CELL - 2);
+  });
+
+  // wall placement preview (build mode)
+  if (me.alive && me.building) {
+    const cx = Math.floor(mouseX / CELL), cy = Math.floor(mouseY / CELL);
+    const inRange = Math.hypot(mouseX - me.x, mouseY - me.y) < 120;
+    ctx.fillStyle = inRange && !hasWall(cx, cy) && me.wallsLeft > 0
+      ? 'rgba(45,212,240,0.2)' : 'rgba(255,61,127,0.15)';
+    ctx.fillRect(cx * CELL, cy * CELL, CELL, CELL);
+  }
+
+  // opponent bullets
+  ctx.fillStyle = MAGENTA;
+  oppBullets.forEach(b => {
+    ctx.beginPath(); ctx.arc(b.x, b.y, BULLET_R, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // my bullets
+  ctx.fillStyle = CYAN;
+  myBullets.forEach(b => {
+    ctx.beginPath(); ctx.arc(b.x, b.y, BULLET_R, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // opponent car
+  if (opp.alive) drawPlayer(opp.x, opp.y, opp.angle, MAGENTA, false);
+
+  // my car
+  if (me.alive) drawPlayer(me.x, me.y, me.angle, CYAN, true);
+
+  // crosshair
+  if (me.alive && !me.building) {
+    ctx.strokeStyle = 'rgba(238,241,246,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(mouseX - 10, mouseY); ctx.lineTo(mouseX + 10, mouseY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mouseX, mouseY - 10); ctx.lineTo(mouseX, mouseY + 10); ctx.stroke();
+  }
+}
+
+function drawPlayer(x, y, angle, color, isMe) {
+  ctx.save();
+  ctx.translate(x, y);
+  // glow
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, PLAYER_R * 2);
+  g.addColorStop(0, color + '55');
+  g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, PLAYER_R * 2, 0, Math.PI * 2); ctx.fill();
+  // body
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.arc(0, 0, PLAYER_R, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  // direction arrow
+  ctx.rotate(angle);
+  ctx.fillStyle = isMe ? '#0a2a30' : '#2a0418';
+  ctx.beginPath();
+  ctx.moveTo(PLAYER_R + 2, 0);
+  ctx.lineTo(PLAYER_R - 6, -5);
+  ctx.lineTo(PLAYER_R - 6, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- HUD ---------- */
+function updateHUD() {
+  hpMeEl.style.width  = Math.max(0, me.hp)  + '%';
+  hpOppEl.style.width = Math.max(0, opp.hp) + '%';
+  wallsLeftEl.textContent = '🧱 ' + me.wallsLeft + ' walls left';
+}
+
+/* ---------- Firebase / networking ---------- */
+function subscribeRoom() {
+  const oppRole = myRole === 'host' ? 'guest' : 'host';
+
+  // opponent position
+  roomRef.child('players/' + oppRole).on('value', snap => {
+    if (!snap.exists()) return;
+    const d = snap.val();
+    opp.x = d.x; opp.y = d.y; opp.angle = d.angle;
+    opp.hp = d.hp;
+    if (d.alive === false) opp.alive = false;
+  });
+
+  // walls
+  roomRef.child('walls').on('value', snap => {
+    walls.clear();
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const key = child.key.replace('_', ',');
+        walls.set(key, child.val());
+      });
+    }
+  });
+
+  // events (shots, hits, rematch)
+  connectedAt = Date.now();
+  roomRef.child('events').orderByChild('t').startAt(connectedAt).on('child_added', snap => {
+    const id = snap.key;
+    if (seenEvents.has(id)) return;
+    seenEvents.add(id);
+    const ev = snap.val();
+    if (ev.by === myRole) return; // ignore my own events
+
+    if (ev.type === 'shot') {
+      oppBullets.push({ x: ev.x, y: ev.y, dx: ev.dx, dy: ev.dy, dist: 0, checkOpp: false });
+    } else if (ev.type === 'hit' && ev.target === myRole) {
+      me.hp = Math.max(0, me.hp - ev.amount);
+      if (me.hp <= 0 && me.alive) {
+        me.alive = false;
+        roomRef.child('players/' + myRole).set({ x: me.x, y: me.y, angle: me.angle, hp: 0, alive: false });
+        showEnd(false, 'Opponent eliminated you');
+      }
+    } else if (ev.type === 'rematch') {
+      if (!matchActive) beginRound();
+    }
+  });
+
+  // game state (opponent won)
+  roomRef.child('state').on('value', snap => {
+    if (!snap.exists()) return;
+    const s = snap.val();
+    if (s.winner && s.winner !== myRole && matchActive) {
+      matchActive = false;
+      showEnd(false, 'Opponent eliminated you');
+    }
+  });
+}
+
+function handleOppElim() {
+  if (!opp.alive && matchActive) {
+    matchActive = false;
+    roomRef.child('state').set({ winner: myRole });
+    showEnd(true, 'You eliminated your opponent');
+  }
+}
+
+/* ---------- match lifecycle ---------- */
+function startMatch() {
+  lobby.style.display = 'none';
+  hud.style.display = 'block';
+  subscribeRoom();
+  beginRound();
+}
+
+function beginRound() {
+  endOverlay.classList.remove('show');
+  walls.clear();
+  myBullets = []; oppBullets = [];
+  fireCd = 0;
+  me.hp = 100; me.alive = true; me.building = false; me.wallsLeft = MAX_WALLS;
+  opp.hp = 100; opp.alive = true;
+  me.x = myRole === 'host' ? 80  : W - 80;
+  me.y = H / 2;
+  opp.x = myRole === 'host' ? W - 80 : 80;
+  opp.y = H / 2;
+  me.angle = myRole === 'host' ? 0 : Math.PI;
+  modeLabelEl.textContent = '🔫 SHOOT — right-click or [E] to BUILD';
+
+  // clear Firebase walls and events
+  roomRef.child('walls').remove();
+  roomRef.child('events').remove();
+  seenEvents.clear();
+
+  countdown(3, () => { matchActive = true; });
+}
+
+function countdown(n, done) {
+  cdEl.style.display = 'block';
+  cdEl.textContent = n;
+  if (n > 0) {
+    setTimeout(() => countdown(n - 1, done), 800);
+  } else {
+    cdEl.textContent = 'GO!';
+    setTimeout(() => { cdEl.style.display = 'none'; done(); }, 500);
+  }
+}
+
+function showEnd(won, detail) {
+  matchActive = false;
+  endTitle.textContent = won ? 'You win! 🏆' : 'You lose';
+  endTitle.style.color = won ? 'var(--green)' : 'var(--magenta)';
+  endDetail.textContent = detail;
+  endOverlay.classList.add('show');
+}
+
+document.getElementById('rematchBtn').addEventListener('click', () => {
+  roomRef.child('events').push({ type: 'rematch', by: myRole, t: Date.now() });
+  beginRound();
+});
+
+/* ---------- lobby ---------- */
+function rndCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+document.getElementById('createBtn').addEventListener('click', () => {
+  myRole = 'host';
+  roomCode = rndCode();
+  roomRef = db.ref('rooms/' + roomCode);
+  statusEl.textContent = 'Waiting for opponent to join...';
+  document.getElementById('createBtn').style.display = 'none';
+  document.getElementById('codeDisplay').textContent = roomCode;
+  document.getElementById('hostPanel').style.display = 'block';
+  roomRef.child('state').set({ winner: '', phase: 'waiting' });
+  connBadge.textContent = 'ROOM OPEN';
+  // wait for guest to join
+  roomRef.child('players/guest').on('value', snap => {
+    if (snap.exists()) {
+      connBadge.textContent = 'CONNECTED';
+      startMatch();
+    }
+  });
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const url = location.href.split('?')[0] + '?room=' + roomCode;
+  navigator.clipboard.writeText(url).then(() => { statusEl.textContent = 'Link copied! Send it to your opponent.'; });
+});
+
+document.getElementById('joinBtn').addEventListener('click', doJoin);
+document.getElementById('joinInput').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
+
+function doJoin() {
+  const code = document.getElementById('joinInput').value.trim().toUpperCase();
+  if (!code || code.length < 2) { errEl.textContent = 'Enter a room code.'; return; }
+  myRole = 'guest';
+  roomCode = code;
+  roomRef = db.ref('rooms/' + roomCode);
+  statusEl.textContent = 'Connecting...';
+  errEl.textContent = '';
+  // check room exists
+  roomRef.child('state').once('value', snap => {
+    if (!snap.exists()) { errEl.textContent = 'No room found with that code.'; statusEl.textContent = ''; return; }
+    connBadge.textContent = 'CONNECTED';
+    statusEl.textContent = 'Joined! Starting match...';
+    // announce presence to host
+    roomRef.child('players/guest').set({ x: W - 80, y: H / 2, angle: Math.PI, hp: 100, alive: true });
+    startMatch();
+  });
+}
+
+// auto-fill code from URL
+const urlRoom = new URLSearchParams(location.search).get('room');
+if (urlRoom) document.getElementById('joinInput').value = urlRoom;
+
+// watch for opp elimination each tick
+setInterval(() => { if (matchActive && !opp.alive) handleOppElim(); }, 200);
+
+/* ---------- go ---------- */
+requestAnimationFrame(update);
+</script>
+
+</body>
+</html>

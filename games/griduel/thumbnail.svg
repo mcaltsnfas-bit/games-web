@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+  <defs>
+    <pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M20 0L0 0 0 20" fill="none" stroke="#1c2636" stroke-width="0.8"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="240" fill="#0a0d14"/>
+  <rect width="400" height="240" fill="url(#g)"/>
+
+  <!-- walls cyan player -->
+  <rect x="100" y="80"  width="20" height="20" rx="2" fill="rgba(45,212,240,0.4)" stroke="#2dd4f0" stroke-width="1.5"/>
+  <rect x="100" y="100" width="20" height="20" rx="2" fill="rgba(45,212,240,0.4)" stroke="#2dd4f0" stroke-width="1.5"/>
+  <rect x="100" y="120" width="20" height="20" rx="2" fill="rgba(45,212,240,0.4)" stroke="#2dd4f0" stroke-width="1.5"/>
+  <rect x="120" y="120" width="20" height="20" rx="2" fill="rgba(45,212,240,0.4)" stroke="#2dd4f0" stroke-width="1.5"/>
+
+  <!-- walls magenta player -->
+  <rect x="260" y="100" width="20" height="20" rx="2" fill="rgba(255,61,127,0.4)" stroke="#ff3d7f" stroke-width="1.5"/>
+  <rect x="260" y="120" width="20" height="20" rx="2" fill="rgba(255,61,127,0.4)" stroke="#ff3d7f" stroke-width="1.5"/>
+  <rect x="280" y="100" width="20" height="20" rx="2" fill="rgba(255,61,127,0.4)" stroke="#ff3d7f" stroke-width="1.5"/>
+
+  <!-- cyan player -->
+  <circle cx="140" cy="155" r="14" fill="#2dd4f0"/>
+  <circle cx="140" cy="155" r="24" fill="#2dd4f0" opacity="0.12"/>
+  <!-- direction arrow -->
+  <polygon points="154,155 148,149 148,161" fill="#04222b"/>
+
+  <!-- magenta player -->
+  <circle cx="250" cy="95" r="14" fill="#ff3d7f"/>
+  <circle cx="250" cy="95" r="24" fill="#ff3d7f" opacity="0.12"/>
+  <polygon points="236,95 242,89 242,101" fill="#2a0418"/>
+
+  <!-- bullet trail -->
+  <line x1="156" y1="148" x2="232" y2="100" stroke="#2dd4f0" stroke-width="2" stroke-dasharray="5 4" opacity="0.6"/>
+  <circle cx="236" cy="98" r="3.5" fill="#2dd4f0"/>
+
+  <!-- crosshair at opp -->
+  <line x1="240" y1="89" x2="260" y2="89" stroke="rgba(238,241,246,0.4)" stroke-width="1"/>
+  <line x1="250" y1="79" x2="250" y2="99" stroke="rgba(238,241,246,0.4)" stroke-width="1"/>
+</svg>

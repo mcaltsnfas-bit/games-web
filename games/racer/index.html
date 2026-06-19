@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Racer — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  body { overflow:hidden; }
+  .nr-wrap { display:flex; flex-direction:column; height:100vh; }
+  .nr-stage { position:relative; flex:1; min-height:0; background:#060809; }
+  .nr-stage canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  /* HUD */
+  .nr-hud { position:absolute; inset:0; pointer-events:none; z-index:3; }
+
+  .nr-speedo {
+    position:absolute; bottom:20px; left:20px;
+    font-family:var(--font-mono); font-size:11px; color:var(--ink-dim);
+    background:rgba(6,8,9,0.7); border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm); padding:10px 14px; min-width:110px;
+  }
+  .nr-speedo__val { font-size:28px; color:var(--cyan); font-family:var(--font-display); display:block; margin-bottom:2px; }
+
+  .nr-timer {
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    font-family:var(--font-display); font-size:15px; color:var(--ink);
+    background:rgba(6,8,9,0.7); border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm); padding:8px 18px; text-align:center; white-space:nowrap;
+  }
+  .nr-timer__current { color:var(--cyan); display:block; font-size:22px; }
+  .nr-timer__best { color:var(--ink-dim); font-size:10px; display:block; margin-top:2px; }
+
+  .nr-lap {
+    position:absolute; top:12px; right:16px;
+    font-family:var(--font-mono); font-size:11px; color:var(--ink-dim);
+    background:rgba(6,8,9,0.7); border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm); padding:8px 14px; text-align:right;
+  }
+  .nr-lap__val { font-size:18px; color:var(--amber); font-family:var(--font-display); display:block; }
+
+  .nr-boost {
+    position:absolute; bottom:20px; right:20px; width:140px;
+  }
+  .nr-boost__label { font-family:var(--font-mono); font-size:10px; color:var(--ink-faint); margin-bottom:4px; }
+  .nr-boost__bar { height:8px; border-radius:4px; background:rgba(255,255,255,0.07); border:1px solid var(--border-strong); overflow:hidden; }
+  .nr-boost__fill { height:100%; background:var(--amber); transition:width 0.08s; }
+
+  .nr-msg {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:var(--font-display); font-size:14px; color:var(--cyan);
+    text-shadow:0 0 16px rgba(45,212,240,0.7);
+    text-align:center; line-height:1.8; pointer-events:none;
+    background:rgba(6,8,9,0.6); padding:14px 22px; border-radius:var(--radius-sm);
+    border:1px solid var(--border-strong);
+  }
+  .nr-msg.hidden { display:none; }
+
+  .nr-sector {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:var(--font-display); font-size:32px; color:var(--green);
+    text-shadow:0 0 20px rgba(62,224,138,0.8);
+    opacity:0; transition:opacity 0.2s;
+    pointer-events:none;
+  }
+  .nr-sector.pop { opacity:1; }
+
+  .nr-hints {
+    position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+    font-family:var(--font-mono); font-size:10px; color:var(--ink-faint); text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<div class="nr-wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">WEB ARCADE</span>
+  </div>
+
+  <div class="nr-stage" id="stage">
+    <div class="nr-hud">
+      <div class="nr-speedo">
+        <span class="nr-speedo__val" id="speedVal">0</span>
+        KM/H
+      </div>
+      <div class="nr-timer">
+        <span class="nr-timer__current" id="lapTime">0:00.000</span>
+        <span class="nr-timer__best" id="bestTime">BEST —</span>
+      </div>
+      <div class="nr-lap">
+        <span class="nr-lap__val" id="lapCount">LAP 0</span>
+        <span style="font-size:10px">/ 3</span>
+      </div>
+      <div class="nr-boost">
+        <div class="nr-boost__label">BOOST</div>
+        <div class="nr-boost__bar"><div class="nr-boost__fill" id="boostBar" style="width:100%"></div></div>
+      </div>
+      <div class="nr-hints">W/↑ accelerate &nbsp;·&nbsp; S/↓ brake/reverse &nbsp;·&nbsp; A/D or ←/→ steer &nbsp;·&nbsp; SHIFT boost</div>
+    </div>
+    <div class="nr-msg" id="msg">NEON RACER<br><span style="font-size:10px;color:var(--ink-dim)">Press W or ↑ to start</span></div>
+    <div class="nr-sector" id="sectorFlash"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/[email protected]/build/three.min.js"></script>
+<script>
+/* =====================================================================
+   NEON RACER — single-player 3D behind-car racing (Acceleration City style)
+   ===================================================================== */
+
+/* ---------- constants (from tested physics model) ---------- */
+const ACCEL      = 22;
+const DECEL      = 30;
+const DRAG       = 10;
+const MAX_SPEED  = 18;
+const BOOST_MAX  = 28;
+const MAX_REV    = 6;
+const TURN_RATE  = 2.4;      // rad/s at full speed
+const GRAVITY    = 28;
+const BOOST_DRAIN   = 40;
+const BOOST_REGEN   = 22;
+
+/* ---------- track definition ---------- */
+// Ring-oval track: centre radius 70, road half-width 13
+const TRACK_R   = 70;
+const ROAD_W    = 26;        // full road width
+const N_SEG     = 48;        // road segments
+const BOOST_SEGS  = [4, 16, 28, 40];   // segment indices with boost pads
+const RAMP_SEGS   = [8, 20, 32, 44];   // segment indices with ramps
+const CHECKPOINTS = [0, 12, 24, 36];   // every quarter-lap
+
+/* ---------- DOM ---------- */
+const stage       = document.getElementById('stage');
+const speedEl     = document.getElementById('speedVal');
+const lapTimeEl   = document.getElementById('lapTime');
+const bestTimeEl  = document.getElementById('bestTime');
+const lapCountEl  = document.getElementById('lapCount');
+const boostBarEl  = document.getElementById('boostBar');
+const msgEl       = document.getElementById('msg');
+const sectorEl    = document.getElementById('sectorFlash');
+
+const BEST_KEY = 'arcade.racer.bestlap';
+function getBest() { try { return parseFloat(localStorage.getItem(BEST_KEY) || '0'); } catch { return 0; } }
+function saveBest(v) { try { localStorage.setItem(BEST_KEY, String(v)); } catch {} }
+function fmtTime(ms) {
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const ms3 = Math.floor(ms % 1000);
+  return `${m}:${String(s).padStart(2,'0')}.${String(ms3).padStart(3,'0')}`;
+}
+
+/* ---------- three.js ---------- */
+let renderer, scene, camera, clock;
+const CYAN_C    = 0x2dd4f0, MAGENTA_C = 0xff3d7f;
+const AMBER_C   = 0xffce45, GREEN_C   = 0x3ee08a;
+const DARK      = 0x0a0d14;
+
+function initScene() {
+  scene    = new THREE.Scene();
+  scene.background = new THREE.Color(DARK);
+  scene.fog = new THREE.Fog(DARK, 60, 200);
+
+  camera   = new THREE.PerspectiveCamera(65, 1, 0.1, 500);
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  stage.appendChild(renderer.domElement);
+  resizeRenderer();
+  window.addEventListener('resize', resizeRenderer);
+
+  clock = new THREE.Clock();
+
+  // lighting
+  scene.add(new THREE.AmbientLight(0x334466, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+  sun.position.set(40, 80, 30);
+  sun.castShadow = true;
+  scene.add(sun);
+
+  // add a cyan fill from below (neon glow feel)
+  const fill = new THREE.PointLight(CYAN_C, 0.4, 300);
+  fill.position.set(0, 2, 0);
+  scene.add(fill);
+
+  buildTrack();
+  buildCityscape();
+}
+
+function resizeRenderer() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h);
+  if (camera) { camera.aspect = w / h; camera.updateProjectionMatrix(); }
+}
+
+/* ---------- track building ---------- */
+const roadMat   = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+const lineMat   = new THREE.MeshStandardMaterial({ color: CYAN_C, emissive: CYAN_C, emissiveIntensity: 0.4 });
+const boostMat  = new THREE.MeshStandardMaterial({ color: AMBER_C, emissive: AMBER_C, emissiveIntensity: 0.6, transparent: true, opacity: 0.85 });
+const rampMat   = new THREE.MeshStandardMaterial({ color: MAGENTA_C, emissive: MAGENTA_C, emissiveIntensity: 0.3, roughness: 0.5 });
+const kerb1Mat  = new THREE.MeshStandardMaterial({ color: 0xff2222 });
+const kerb2Mat  = new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+let boostZones = [];  // {x,z,r} — bounding cylinders
+let rampZones  = [];  // {x,z,r,launchVY}
+
+function segPose(i) {
+  // centre position + rotation for segment i
+  const ang     = (i / N_SEG) * Math.PI * 2;
+  const nextAng = ((i + 1) / N_SEG) * Math.PI * 2;
+  const cx  = Math.cos((ang + nextAng) / 2) * TRACK_R;
+  const cz  = Math.sin((ang + nextAng) / 2) * TRACK_R;
+  const len = 2 * TRACK_R * Math.sin(Math.PI / N_SEG) + 0.5; // slight overlap
+  const rot = -(ang + nextAng) / 2 + Math.PI / 2;
+  return { cx, cz, len, rot };
+}
+
+function buildTrack() {
+  for (let i = 0; i < N_SEG; i++) {
+    const { cx, cz, len, rot } = segPose(i);
+    const isBoost = BOOST_SEGS.includes(i);
+    const isRamp  = RAMP_SEGS.includes(i);
+
+    // road surface
+    const road = new THREE.Mesh(
+      new THREE.BoxGeometry(ROAD_W, 0.3, len),
+      isBoost ? boostMat : roadMat
+    );
+    road.position.set(cx, 0, cz);
+    road.rotation.y = rot;
+    road.receiveShadow = true;
+    scene.add(road);
+
+    // ramp: tilt the segment
+    if (isRamp) {
+      const ramp = new THREE.Mesh(
+        new THREE.BoxGeometry(ROAD_W - 2, 0.4, len * 0.7),
+        rampMat
+      );
+      ramp.position.set(cx, 0.5, cz);
+      ramp.rotation.y = rot;
+      ramp.rotation.x = -0.26;
+      ramp.receiveShadow = true;
+      scene.add(ramp);
+      rampZones.push({ x: cx, z: cz, r: 9, launchVY: 8 });
+    }
+
+    // kerb stripe (alternating red/white, narrow strips on each edge)
+    const kerbGeo = new THREE.BoxGeometry(1.2, 0.32, len);
+    [-ROAD_W / 2 + 0.6, ROAD_W / 2 - 0.6].forEach(ox => {
+      const kerb = new THREE.Mesh(kerbGeo, i % 2 === 0 ? kerb1Mat : kerb2Mat);
+      kerb.position.set(cx + Math.cos(rot - Math.PI / 2) * ox,
+                        0.01,
+                        cz + Math.sin(rot - Math.PI / 2) * ox);
+      kerb.rotation.y = rot;
+      scene.add(kerb);
+    });
+
+    // centre dashes
+    if (i % 2 === 0) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.35, len * 0.45), lineMat);
+      dash.position.set(cx, 0.02, cz);
+      dash.rotation.y = rot;
+      scene.add(dash);
+    }
+
+    // boost pad glow arrow
+    if (isBoost) {
+      const arrow = new THREE.Mesh(
+        new THREE.BoxGeometry(ROAD_W - 4, 0.36, 3),
+        new THREE.MeshStandardMaterial({ color: AMBER_C, emissive: AMBER_C, emissiveIntensity: 1 })
+      );
+      arrow.position.set(cx, 0.04, cz);
+      arrow.rotation.y = rot;
+      scene.add(arrow);
+      boostZones.push({ x: cx, z: cz, r: 9 });
+
+      const glow = new THREE.PointLight(AMBER_C, 1.5, 16);
+      glow.position.set(cx, 2, cz);
+      scene.add(glow);
+    }
+
+    // checkpoint marker (vertical neon pole at each quarter-lap)
+    if (CHECKPOINTS.includes(i)) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.25, 8, 8),
+        new THREE.MeshStandardMaterial({ color: GREEN_C, emissive: GREEN_C, emissiveIntensity: 0.8 })
+      );
+      pole.position.set(cx, 4, cz);
+      scene.add(pole);
+      const poleGlow = new THREE.PointLight(GREEN_C, 1, 20);
+      poleGlow.position.set(cx, 4, cz);
+      scene.add(poleGlow);
+    }
+  }
+
+  // ground plane (off-track area)
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(600, 600),
+    new THREE.MeshStandardMaterial({ color: 0x060a0d, roughness: 1 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.15;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // finish line
+  const fin = new THREE.Mesh(
+    new THREE.BoxGeometry(ROAD_W, 0.38, 1.5),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xaaaaaa, emissiveIntensity: 0.5 })
+  );
+  const fp = segPose(0);
+  fin.position.set(fp.cx, 0.05, fp.cz);
+  fin.rotation.y = fp.rot;
+  scene.add(fin);
+}
+
+function buildCityscape() {
+  const matA = new THREE.MeshBasicMaterial({ color: CYAN_C, transparent: true, opacity: 0.15 });
+  const matB = new THREE.MeshBasicMaterial({ color: MAGENTA_C, transparent: true, opacity: 0.15 });
+  for (let i = 0; i < 32; i++) {
+    const ang = (i / 32) * Math.PI * 2 + 0.1;
+    const r   = TRACK_R + 20 + Math.random() * 30;
+    const h   = 10 + Math.random() * 40;
+    const bld = new THREE.Mesh(
+      new THREE.BoxGeometry(4 + Math.random() * 5, h, 4 + Math.random() * 5),
+      i % 2 === 0 ? matA : matB
+    );
+    bld.position.set(Math.cos(ang) * r, h / 2, Math.sin(ang) * r);
+    scene.add(bld);
+  }
+  // inner city cluster
+  for (let i = 0; i < 12; i++) {
+    const ang = (i / 12) * Math.PI * 2;
+    const r   = TRACK_R - 30 - Math.random() * 10;
+    const h   = 5 + Math.random() * 20;
+    const bld = new THREE.Mesh(
+      new THREE.BoxGeometry(3 + Math.random() * 4, h, 3 + Math.random() * 4),
+      i % 3 === 0 ? matA : matB
+    );
+    bld.position.set(Math.cos(ang) * r, h / 2, Math.sin(ang) * r);
+    scene.add(bld);
+  }
+}
+
+/* ---------- car ---------- */
+let carMesh;
+function buildCar() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: CYAN_C, emissive: CYAN_C, emissiveIntensity: 0.35, roughness: 0.4 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.55, 4.2), mat);
+  body.position.y = 0.5; body.castShadow = true;
+  g.add(body);
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 2), mat);
+  cab.position.set(0, 1.0, -0.2); cab.castShadow = true;
+  g.add(cab);
+  const noseMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.8 });
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.35, 0.5), noseMat);
+  nose.position.set(0, 0.5, 2.1);
+  g.add(nose);
+  const wMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+  const wGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.38, 12);
+  [[-1.1,0.44,1.4],[1.1,0.44,1.4],[-1.1,0.44,-1.4],[1.1,0.44,-1.4]].forEach(p => {
+    const w = new THREE.Mesh(wGeo, wMat); w.rotation.z = Math.PI/2;
+    w.position.set(...p); w.castShadow = true; g.add(w);
+  });
+  const glow = new THREE.PointLight(CYAN_C, 1.4, 14);
+  glow.position.set(0,1,0); g.add(glow);
+  return g;
+}
+
+/* ---------- car physics state ---------- */
+let car = { x:0, y:0, z:0, vy:0, heading:0, speed:0, boost:100, lap:0, alive:true };
+let lapTimer    = 0;
+let raceStarted = false;
+let raceFinished = false;
+let prevAngle   = 0;
+let totalAngle  = 0;
+let lastCheckpoint = -1;
+let checkpointsDone = new Set();
+const TOTAL_LAPS = 3;
+
+/* Start position: entrance of seg 0 */
+function resetCar() {
+  const p = segPose(0);
+  car.x = p.cx; car.y = 0.5; car.z = p.cz;
+  car.heading = -Math.PI / 2 + 0.01; // pointing clockwise around track
+  car.speed = 0; car.vy = 0; car.boost = 100;
+  car.lap = 0;
+  lapTimer = 0; raceStarted = false; raceFinished = false;
+  prevAngle = Math.atan2(car.z, car.x);
+  totalAngle = 0;
+  checkpointsDone.clear();
+  lastCheckpoint = -1;
+}
+
+/* ---------- input ---------- */
+const keys = {};
+document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+document.addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+
+/* ---------- on-track detection ---------- */
+function onTrack(x, z) {
+  return Math.abs(Math.hypot(x, z) - TRACK_R) < ROAD_W / 2 + 1;
+}
+
+function nearBoostZone(x, z) {
+  return boostZones.some(b => Math.hypot(x - b.x, z - b.z) < b.r);
+}
+
+function nearRamp(x, z) {
+  return rampZones.find(r => Math.hypot(x - r.x, z - r.z) < r.r);
+}
+
+/* ---------- lap / checkpoint ---------- */
+function updateLapTracking(dt) {
+  if (!raceStarted || raceFinished) return;
+  lapTimer += dt * 1000;
+
+  const curAngle = Math.atan2(car.z, car.x);
+  let delta = curAngle - prevAngle;
+  if (delta >  Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  totalAngle += delta;
+  prevAngle = curAngle;
+
+  // checkpoint detection (which N_SEG segment are we near?)
+  const nearestSeg = Math.round((Math.atan2(car.z, car.x) / (Math.PI * 2) + 1) * N_SEG) % N_SEG;
+  CHECKPOINTS.forEach((seg, idx) => {
+    if (nearestSeg === seg && !checkpointsDone.has(idx)) {
+      checkpointsDone.add(idx);
+      flashSector('CHECKPOINT!');
+    }
+  });
+
+  // lap: completed a full revolution (totalAngle increments going clockwise)
+  const lapsFromAngle = Math.floor(Math.abs(totalAngle) / (Math.PI * 2));
+  if (lapsFromAngle > car.lap && checkpointsDone.size >= CHECKPOINTS.length) {
+    car.lap++;
+    checkpointsDone.clear();
+    const lapMs = lapTimer;
+    lapTimer = 0;
+
+    const best = getBest();
+    if (!best || lapMs < best) {
+      saveBest(lapMs);
+      bestTimeEl.textContent = 'BEST ' + fmtTime(lapMs);
+      flashSector('NEW BEST!');
+    } else {
+      flashSector('LAP ' + car.lap);
+    }
+
+    if (car.lap >= TOTAL_LAPS) {
+      raceFinished = true;
+      showMsg('RACE FINISHED!\n' + fmtTime(lapMs) + '\nPress R to restart');
+    }
+  }
+}
+
+let sectorTimeout = null;
+function flashSector(text) {
+  sectorEl.textContent = text;
+  sectorEl.classList.add('pop');
+  clearTimeout(sectorTimeout);
+  sectorTimeout = setTimeout(() => sectorEl.classList.remove('pop'), 1200);
+}
+
+/* ---------- camera ---------- */
+const camPos = new THREE.Vector3();
+const camTarget = new THREE.Vector3();
+function updateCamera() {
+  const dx = Math.sin(car.heading), dz = Math.cos(car.heading);
+  const behind = new THREE.Vector3(car.x - dx * 8, car.y + 4, car.z - dz * 8);
+  const lookAt = new THREE.Vector3(car.x + dx * 5, car.y + 1.2, car.z + dz * 5);
+  camPos.lerp(behind, 0.1);
+  camTarget.lerp(lookAt, 0.12);
+  camera.position.copy(camPos);
+  camera.lookAt(camTarget);
+}
+
+/* ---------- HUD update ---------- */
+function updateHUD() {
+  const kmh = Math.round(Math.abs(car.speed) * 12);
+  speedEl.textContent = kmh;
+  lapCountEl.textContent = 'LAP ' + Math.min(car.lap + 1, TOTAL_LAPS);
+  lapTimeEl.textContent  = fmtTime(lapTimer);
+  boostBarEl.style.width = Math.max(0, car.boost) + '%';
+  const best = getBest();
+  bestTimeEl.textContent = best ? 'BEST ' + fmtTime(best) : 'BEST —';
+}
+
+/* ---------- main update loop ---------- */
+function update() {
+  requestAnimationFrame(update);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  const boosting = (keys['shift'] || keys['shiftleft'] || keys['shiftright']) && car.boost > 0;
+
+  let throttle = 0;
+  if (keys['w'] || keys['arrowup'])   throttle =  1;
+  if (keys['s'] || keys['arrowdown']) throttle = -1;
+
+  if (throttle !== 0 && !raceStarted && !raceFinished) {
+    raceStarted = true;
+    msgEl.classList.add('hidden');
+    prevAngle = Math.atan2(car.z, car.x);
+  }
+
+  if (!raceFinished) {
+    // speed
+    const cap = boosting ? BOOST_MAX : MAX_SPEED;
+    if (throttle >  0) car.speed += ACCEL * dt;
+    else if (throttle < 0) car.speed -= DECEL * dt;
+    else {
+      if (car.speed > 0) car.speed = Math.max(0, car.speed - DRAG * dt);
+      if (car.speed < 0) car.speed = Math.min(0, car.speed + DRAG * dt);
+    }
+    car.speed = Math.max(-MAX_REV, Math.min(cap, car.speed));
+
+    // steering
+    let steer = 0;
+    if (keys['a'] || keys['arrowleft'])  steer = -1;
+    if (keys['d'] || keys['arrowright']) steer =  1;
+    const speedFraction = Math.abs(car.speed) / MAX_SPEED;
+    car.heading += steer * TURN_RATE * speedFraction * Math.sign(car.speed || 1) * dt;
+
+    // boost meter
+    car.boost = boosting
+      ? Math.max(0, car.boost - BOOST_DRAIN * dt)
+      : Math.min(100, car.boost + BOOST_REGEN * dt);
+
+    // movement
+    car.x += Math.sin(car.heading) * car.speed * dt;
+    car.z += Math.cos(car.heading) * car.speed * dt;
+
+    // ramps
+    if (car.y <= 0.6) {
+      const ramp = nearRamp(car.x, car.z);
+      if (ramp && Math.abs(car.speed) > 5) {
+        car.vy = ramp.launchVY;
+      }
+    }
+
+    // gravity
+    car.vy -= GRAVITY * dt;
+    car.y  += car.vy * dt;
+    if (car.y <= 0.5) { car.y = 0.5; car.vy = 0; }
+
+    // off-track slow-down
+    if (!onTrack(car.x, car.z) && car.y <= 0.6) {
+      car.speed *= (1 - 3 * dt);
+    }
+
+    // boost pad
+    if (nearBoostZone(car.x, car.z) && Math.abs(car.speed) > 2) {
+      car.speed = Math.min(BOOST_MAX, car.speed + 12 * dt);
+      flashSector('BOOST!');
+    }
+
+    updateLapTracking(dt);
+  }
+
+  // R to restart
+  if (keys['r']) {
+    resetCar();
+    msgEl.textContent = 'NEON RACER\n\u0020';
+    msgEl.classList.remove('hidden');
+  }
+
+  if (carMesh) {
+    carMesh.position.set(car.x, car.y, car.z);
+    carMesh.rotation.y = car.heading;
+    // lean into turns
+    const steer = (keys['a'] || keys['arrowleft'] ? -1 : 0) + (keys['d'] || keys['arrowright'] ? 1 : 0);
+    carMesh.rotation.z = THREE.MathUtils.lerp(carMesh.rotation.z, steer * 0.12 * Math.sign(car.speed || 1), 0.1);
+  }
+
+  updateCamera();
+  updateHUD();
+  renderer.render(scene, camera);
+}
+
+/* ---------- init ---------- */
+function init() {
+  initScene();
+  carMesh = buildCar();
+  scene.add(carMesh);
+  resetCar();
+  camPos.set(car.x - 8, car.y + 4, car.z);
+  camTarget.set(car.x + 5, car.y + 1, car.z);
+  const best = getBest();
+  if (best) bestTimeEl.textContent = 'BEST ' + fmtTime(best);
+  requestAnimationFrame(update);
+}
+
+init();
+</script>
+
+</body>
+</html>
