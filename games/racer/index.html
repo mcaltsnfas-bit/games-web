@@ -104,7 +104,7 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/[email protected]/build/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* =====================================================================
    NEON RACER — single-player 3D behind-car racing (Acceleration City style)
@@ -594,7 +594,14 @@ function init() {
   requestAnimationFrame(update);
 }
 
-init();
+// Make sure the 3D library actually loaded before starting.
+if (typeof THREE === 'undefined') {
+  document.getElementById('msg').innerHTML =
+    "3D engine couldn't load<br><span style='font-size:10px;color:var(--ink-dim)'>Check your internet connection and refresh. If you're on a school/work network, WebGL or the CDN may be blocked.</span>";
+  document.getElementById('msg').classList.remove('hidden');
+} else {
+  init();
+}
 </script>
 
 </body>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💣</text></svg>">
+<title>Minesweeper — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .wrap { display:flex; flex-direction:column; min-height:100vh; }
+  .stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:24px 16px; gap:16px; }
+  .topbar-row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .stat { font-family:var(--font-mono); font-size:14px; color:var(--amber); background:var(--bg-panel); border:1px solid var(--border-strong); border-radius:var(--radius-sm); padding:8px 14px; }
+  .diff-row { display:flex; gap:8px; }
+  .diff-row button { font-family:var(--font-mono); font-size:12px; padding:7px 12px; background:var(--bg-panel-2); border:1px solid var(--border-strong); border-radius:var(--radius-sm); color:var(--ink-dim); cursor:pointer; }
+  .diff-row button.active { border-color:var(--cyan); color:var(--cyan); }
+  .grid { display:grid; gap:2px; background:var(--border); padding:2px; border-radius:8px; border:1px solid var(--border-strong); user-select:none; touch-action:manipulation; }
+  .cell {
+    width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+    background:var(--bg-panel-2); border-radius:3px; cursor:pointer;
+    font-family:var(--font-display); font-size:13px; transition:background .08s;
+  }
+  .cell:hover:not(.rev){ background:var(--bg-panel); }
+  .cell.rev { background:var(--bg-recess); cursor:default; }
+  .cell.mine { background:var(--magenta); }
+  .cell.flag { background:var(--bg-panel); }
+  .cell.exploded { background:#ff1744; }
+  .n1{color:#5b8cff}.n2{color:#3ee08a}.n3{color:#ff3d7f}.n4{color:#c34fae}.n5{color:#ff9f45}.n6{color:#2dd4f0}.n7{color:#eef1f6}.n8{color:#8d96a8}
+  .hint { font-family:var(--font-mono); font-size:11px; color:var(--ink-faint); text-align:center; line-height:1.7; }
+  .overlay { position:fixed; inset:0; z-index:10; display:none; align-items:center; justify-content:center; background:rgba(6,8,9,0.85); }
+  .overlay.show { display:flex; }
+  .overlay__t { font-family:var(--font-display); font-size:24px; margin-bottom:8px; }
+  .overlay__d { font-family:var(--font-mono); font-size:13px; color:var(--ink-dim); margin-bottom:18px; }
+  .overlay__c { text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">MINESWEEPER</span>
+    <span style="width:50px"></span>
+  </div>
+
+  <div class="stage">
+    <div class="diff-row" id="diffRow">
+      <button data-d="easy" class="active">Easy 9×9</button>
+      <button data-d="medium">Medium 16×16</button>
+      <button data-d="hard">Hard 16×30</button>
+    </div>
+    <div class="topbar-row">
+      <div class="stat" id="mineStat">💣 10</div>
+      <div class="stat" id="timeStat">⏱️ 0</div>
+      <button class="btn" id="newBtn">New Game</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="hint">Left-click reveal · Right-click (or long-press on mobile) to flag</div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay__c">
+    <div class="overlay__t" id="ovT"></div>
+    <div class="overlay__d" id="ovD"></div>
+    <button class="btn btn--solid" id="ovBtn">Play again</button>
+  </div>
+</div>
+
+<script>
+const DIFF={ easy:{r:9,c:9,m:10}, medium:{r:16,c:16,m:40}, hard:{r:16,c:30,m:99} };
+let R,C,MINES,grid,revealed,flags,started,timer,timerInt,dead,won,diff='easy';
+
+const gridEl=document.getElementById('grid');
+const mineStat=document.getElementById('mineStat');
+const timeStat=document.getElementById('timeStat');
+
+function build(safeR,safeC){
+  grid=Array.from({length:R},()=>Array.from({length:C},()=>({mine:false,rev:false,flag:false,n:0})));
+  const safe=new Set();
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    const r=safeR+dr,c=safeC+dc;
+    if(r>=0&&r<R&&c>=0&&c<C)safe.add(r+','+c);
+  }
+  let placed=0;
+  while(placed<MINES){
+    const r=Math.floor(Math.random()*R),c=Math.floor(Math.random()*C);
+    if(grid[r][c].mine||safe.has(r+','+c))continue;
+    grid[r][c].mine=true; placed++;
+  }
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(grid[r][c].mine)continue;
+    let n=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      const rr=r+dr,cc=c+dc;
+      if(rr>=0&&rr<R&&cc>=0&&cc<C&&grid[rr][cc].mine)n++;
+    }
+    grid[r][c].n=n;
+  }
+}
+function reveal(r,c){
+  if(r<0||r>=R||c<0||c>=C)return;
+  const cell=grid[r][c];
+  if(cell.rev||cell.flag)return;
+  cell.rev=true; revealed++;
+  if(cell.n===0&&!cell.mine){
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(dr||dc)reveal(r+dr,c+dc);
+  }
+}
+function render(){
+  gridEl.style.gridTemplateColumns=`repeat(${C},30px)`;
+  gridEl.innerHTML='';
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const cell=grid[r][c];
+    const d=document.createElement('div');
+    d.className='cell';
+    if(cell.rev){
+      d.classList.add('rev');
+      if(cell.mine){ d.classList.add('mine'); d.textContent='💣'; }
+      else if(cell.n>0){ d.classList.add('n'+cell.n); d.textContent=cell.n; }
+    } else if(cell.flag){ d.classList.add('flag'); d.textContent='🚩'; }
+    d.addEventListener('click',()=>onReveal(r,c));
+    d.addEventListener('contextmenu',e=>{ e.preventDefault(); onFlag(r,c); });
+    // long-press for mobile flag
+    let pressTimer;
+    d.addEventListener('touchstart',e=>{ pressTimer=setTimeout(()=>{ onFlag(r,c); e.preventDefault(); },400); },{passive:true});
+    d.addEventListener('touchend',()=>clearTimeout(pressTimer));
+    gridEl.appendChild(d);
+  }
+}
+function onReveal(r,c){
+  if(dead||won)return;
+  if(grid[r][c].flag)return;
+  if(!started){ build(r,c); started=true; startTimer(); }
+  if(grid[r][c].mine){
+    grid[r][c].rev=true; dead=true; stopTimer();
+    // reveal all mines
+    for(let rr=0;rr<R;rr++)for(let cc=0;cc<C;cc++)if(grid[rr][cc].mine)grid[rr][cc].rev=true;
+    render();
+    setTimeout(()=>end(false),300);
+    return;
+  }
+  reveal(r,c);
+  render();
+  checkWin();
+}
+function onFlag(r,c){
+  if(dead||won||grid[r][c].rev)return;
+  grid[r][c].flag=!grid[r][c].flag;
+  flags+=grid[r][c].flag?1:-1;
+  mineStat.textContent='💣 '+(MINES-flags);
+  render();
+}
+function checkWin(){
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(!grid[r][c].mine&&!grid[r][c].rev)return;
+  }
+  won=true; stopTimer(); end(true);
+}
+function startTimer(){
+  timer=0; timeStat.textContent='⏱️ 0';
+  timerInt=setInterval(()=>{ timer++; timeStat.textContent='⏱️ '+timer; },1000);
+}
+function stopTimer(){ clearInterval(timerInt); }
+function end(win){
+  document.getElementById('ovT').textContent=win?'🎉 You win!':'💥 Boom!';
+  document.getElementById('ovT').style.color=win?'var(--green)':'var(--magenta)';
+  document.getElementById('ovD').textContent=win?('Cleared in '+timer+'s'):'You hit a mine';
+  document.getElementById('overlay').classList.add('show');
+}
+function newGame(){
+  const cfg=DIFF[diff]; R=cfg.r; C=cfg.c; MINES=cfg.m;
+  revealed=0; flags=0; started=false; dead=false; won=false;
+  stopTimer(); timer=0;
+  mineStat.textContent='💣 '+MINES;
+  timeStat.textContent='⏱️ 0';
+  grid=Array.from({length:R},()=>Array.from({length:C},()=>({mine:false,rev:false,flag:false,n:0})));
+  render();
+  document.getElementById('overlay').classList.remove('show');
+}
+document.querySelectorAll('#diffRow button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#diffRow button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); diff=b.dataset.d; newGame();
+  });
+});
+document.getElementById('newBtn').addEventListener('click',newGame);
+document.getElementById('ovBtn').addEventListener('click',newGame);
+newGame();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+  <rect width="400" height="240" fill="#0a0d14"/>
+  <g opacity="0.05" stroke="#fff">
+    <line x1="100" y1="0" x2="100" y2="240"/><line x1="150" y1="0" x2="150" y2="240"/>
+    <line x1="200" y1="0" x2="200" y2="240"/><line x1="250" y1="0" x2="250" y2="240"/>
+    <line x1="300" y1="0" x2="300" y2="240"/>
+  </g>
+  <!-- falling pieces -->
+  <g>
+    <rect x="150" y="40" width="24" height="24" rx="3" fill="#2dd4f0"/><rect x="174" y="40" width="24" height="24" rx="3" fill="#2dd4f0"/>
+    <rect x="198" y="40" width="24" height="24" rx="3" fill="#2dd4f0"/><rect x="222" y="40" width="24" height="24" rx="3" fill="#2dd4f0"/>
+    <rect x="100" y="100" width="24" height="24" rx="3" fill="#ffce45"/><rect x="124" y="100" width="24" height="24" rx="3" fill="#ffce45"/>
+    <rect x="100" y="124" width="24" height="24" rx="3" fill="#ffce45"/><rect x="124" y="124" width="24" height="24" rx="3" fill="#ffce45"/>
+    <rect x="250" y="90" width="24" height="24" rx="3" fill="#c34fae"/><rect x="226" y="114" width="24" height="24" rx="3" fill="#c34fae"/>
+    <rect x="250" y="114" width="24" height="24" rx="3" fill="#c34fae"/><rect x="274" y="114" width="24" height="24" rx="3" fill="#c34fae"/>
+  </g>
+  <!-- settled bottom rows -->
+  <g>
+    <rect x="100" y="180" width="24" height="24" rx="3" fill="#3ee08a"/><rect x="124" y="180" width="24" height="24" rx="3" fill="#ff3d7f"/>
+    <rect x="148" y="180" width="24" height="24" rx="3" fill="#5b8cff"/><rect x="172" y="180" width="24" height="24" rx="3" fill="#ff9f45"/>
+    <rect x="196" y="180" width="24" height="24" rx="3" fill="#2dd4f0"/><rect x="220" y="180" width="24" height="24" rx="3" fill="#ffce45"/>
+    <rect x="244" y="180" width="24" height="24" rx="3" fill="#3ee08a"/><rect x="268" y="180" width="24" height="24" rx="3" fill="#c34fae"/>
+    <rect x="124" y="204" width="24" height="24" rx="3" fill="#ff9f45"/><rect x="172" y="204" width="24" height="24" rx="3" fill="#2dd4f0"/>
+    <rect x="220" y="204" width="24" height="24" rx="3" fill="#ff3d7f"/>
+  </g>
+</svg>
