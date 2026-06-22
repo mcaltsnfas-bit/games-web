@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔴</text></svg>">
+<title>Connect Four — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .wrap{display:flex;flex-direction:column;min-height:100vh}
+  .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px;gap:16px}
+  .mode-row{display:flex;gap:8px}
+  .mode-row button{font-family:var(--font-mono);font-size:12px;padding:8px 14px;background:var(--bg-panel-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--ink-dim);cursor:pointer}
+  .mode-row button.active{border-color:var(--cyan);color:var(--cyan)}
+  .status{font-family:var(--font-display);font-size:13px;color:var(--amber);min-height:20px;text-align:center}
+  .board{background:#0e1830;border-radius:14px;padding:10px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;border:1px solid var(--border-strong)}
+  .slot{width:46px;height:46px;border-radius:50%;background:#060809;cursor:pointer;transition:transform .08s;display:flex;align-items:center;justify-content:center}
+  @media(max-width:520px){.slot{width:38px;height:38px}}
+  .slot:hover{transform:scale(1.05)}
+  .disc{width:80%;height:80%;border-radius:50%;transition:.2s}
+  .disc.p1{background:radial-gradient(circle at 35% 30%,#ff7a9c,#ff3d7f);box-shadow:0 0 10px rgba(255,61,127,.5)}
+  .disc.p2{background:radial-gradient(circle at 35% 30%,#ffe07a,#ffce45);box-shadow:0 0 10px rgba(255,206,69,.5)}
+  .disc.win{animation:pulse .6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+  .overlay{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(6,8,9,.85)}
+  .overlay.show{display:flex}
+  .overlay__t{font-family:var(--font-display);font-size:24px;margin-bottom:18px;text-align:center}
+  .overlay__c{text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">CONNECT FOUR</span><span style="width:50px"></span>
+  </div>
+  <div class="stage">
+    <div class="mode-row" id="modeRow">
+      <button data-m="ai" class="active">vs Computer</button>
+      <button data-m="2p">2 Players</button>
+    </div>
+    <div class="status" id="status">Your turn (red)</div>
+    <div class="board" id="board"></div>
+    <button class="btn" id="newBtn">New Game</button>
+  </div>
+</div>
+<div class="overlay" id="overlay"><div class="overlay__c"><div class="overlay__t" id="ovT"></div><button class="btn btn--solid" id="ovBtn">Play again</button></div></div>
+<script>
+const R=6,C=7;
+let board,turn,mode='ai',over,busy;
+const boardEl=document.getElementById('board'),statusEl=document.getElementById('status');
+function reset(){board=Array.from({length:R},()=>Array(C).fill(0));turn=1;over=false;busy=false;render();setStatus();document.getElementById('overlay').classList.remove('show');}
+function setStatus(){
+  if(over)return;
+  if(mode==='ai')statusEl.textContent=turn===1?'Your turn (red)':'Computer thinking…';
+  else statusEl.textContent=turn===1?'Red\u2019s turn':'Yellow\u2019s turn';
+}
+function render(win){
+  boardEl.innerHTML='';
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    const slot=document.createElement('div');slot.className='slot';
+    if(board[r][c]){const d=document.createElement('div');d.className='disc p'+board[r][c];if(win&&win.some(([wr,wc])=>wr===r&&wc===c))d.classList.add('win');slot.appendChild(d);}
+    slot.addEventListener('click',()=>play(c));
+    boardEl.appendChild(slot);
+  }
+}
+function drop(b,col,p){for(let r=R-1;r>=0;r--)if(b[r][col]===0){b[r][col]=p;return r;}return -1;}
+function winLine(b,p){
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+    if(b[r][c]!==p)continue;
+    const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+    for(const[dr,dc]of dirs){
+      const line=[[r,c]];
+      for(let k=1;k<4;k++){const rr=r+dr*k,cc=c+dc*k;if(rr<0||rr>=R||cc<0||cc>=C||b[rr][cc]!==p)break;line.push([rr,cc]);}
+      if(line.length===4)return line;
+    }
+  }
+  return null;
+}
+function full(b){return b[0].every(c=>c!==0);}
+function play(col){
+  if(over||busy||board[0][col]!==0)return;
+  if(mode==='ai'&&turn!==1)return;
+  doMove(col);
+}
+function doMove(col){
+  drop(board,col,turn);
+  const line=winLine(board,turn);
+  render(line);
+  if(line){over=true;end(turn);return;}
+  if(full(board)){over=true;end(0);return;}
+  turn=turn===1?2:1;setStatus();
+  if(mode==='ai'&&turn===2&&!over){busy=true;setTimeout(()=>{aiMove();busy=false;},450);}
+}
+function validCols(b){const v=[];for(let c=0;c<C;c++)if(b[0][c]===0)v.push(c);return v;}
+function aiMove(){
+  for(const c of validCols(board)){const t=board.map(r=>r.slice());drop(t,c,2);if(winLine(t,2)){doMove(c);return;}}
+  for(const c of validCols(board)){const t=board.map(r=>r.slice());drop(t,c,1);if(winLine(t,1)){doMove(c);return;}}
+  const safe=validCols(board).filter(c=>{
+    const t=board.map(r=>r.slice());drop(t,c,2);
+    return !validCols(t).some(c2=>{const t2=t.map(r=>r.slice());drop(t2,c2,1);return winLine(t2,1);});
+  });
+  const pool=safe.length?safe:validCols(board);
+  const order=[3,2,4,1,5,0,6];
+  for(const c of order)if(pool.includes(c)){doMove(c);return;}
+  doMove(pool[0]);
+}
+function end(winner){
+  let msg;
+  if(winner===0)msg='Draw!';
+  else if(mode==='ai')msg=winner===1?'🎉 You win!':'Computer wins';
+  else msg=(winner===1?'Red':'Yellow')+' wins!';
+  document.getElementById('ovT').textContent=msg;
+  document.getElementById('ovT').style.color=winner===1||winner===0?'var(--green)':'var(--magenta)';
+  setTimeout(()=>document.getElementById('overlay').classList.add('show'),700);
+}
+document.querySelectorAll('#modeRow button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#modeRow button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');mode=b.dataset.m;reset();
+}));
+document.getElementById('newBtn').addEventListener('click',reset);
+document.getElementById('ovBtn').addEventListener('click',reset);
+reset();
+</script>
+</body>
+</html>

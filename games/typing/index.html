@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⌨️</text></svg>">
+<title>Speed Typer — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .wrap{display:flex;flex-direction:column;min-height:100vh}
+  .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:20px;max-width:760px;margin:0 auto;width:100%}
+  .scores{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+  .stat{font-family:var(--font-mono);font-size:14px;color:var(--amber);background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 16px}
+  .mode-row{display:flex;gap:8px}
+  .mode-row button{font-family:var(--font-mono);font-size:11px;padding:7px 12px;background:var(--bg-panel-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--ink-dim);cursor:pointer}
+  .mode-row button.active{border-color:var(--cyan);color:var(--cyan)}
+  .text-box{background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:var(--radius);padding:24px;font-size:20px;line-height:1.9;font-family:var(--font-mono);width:100%;box-sizing:border-box;min-height:120px}
+  .ch{transition:color .05s}
+  .ch.correct{color:var(--green)}
+  .ch.wrong{color:var(--magenta);background:rgba(255,61,127,.15);border-radius:2px}
+  .ch.current{background:var(--cyan);color:#04222b;border-radius:2px}
+  .ch.pending{color:var(--ink-faint)}
+  .input{position:absolute;left:-9999px}
+  .focus-hint{font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);text-align:center}
+  .restart{margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">SPEED TYPER</span><span style="width:50px"></span>
+  </div>
+  <div class="stage">
+    <div class="scores">
+      <div class="stat" id="wpm">WPM 0</div>
+      <div class="stat" id="acc">Acc 100%</div>
+      <div class="stat" id="time">0.0s</div>
+      <div class="stat" id="best">Best 0</div>
+    </div>
+    <div class="mode-row" id="modeRow">
+      <button data-d="short" class="active">Short</button>
+      <button data-d="medium">Medium</button>
+      <button data-d="quotes">Quotes</button>
+    </div>
+    <div class="text-box" id="textBox" tabindex="0"></div>
+    <input class="input" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="focus-hint" id="hint">Click the text and start typing</div>
+    <button class="btn restart" id="restartBtn">New Text</button>
+  </div>
+</div>
+<script>
+const TEXTS={
+  short:[
+    "the quick brown fox jumps over the lazy dog",
+    "pack my box with five dozen liquor jugs",
+    "how vexingly quick daft zebras jump",
+    "bright vixens jump dozy fowl quack",
+    "sphinx of black quartz judge my vow"
+  ],
+  medium:[
+    "typing fast is a skill that comes with steady daily practice and patience over time",
+    "the best way to improve is to focus on accuracy first and let the speed follow naturally",
+    "a good keyboard and proper finger placement can make a real difference in your typing flow",
+    "consistency beats intensity when you are building any new habit including touch typing"
+  ],
+  quotes:[
+    "the only way to do great work is to love what you do",
+    "success is not final and failure is not fatal it is the courage to continue that counts",
+    "the future belongs to those who believe in the beauty of their dreams",
+    "in the middle of difficulty lies opportunity waiting to be found"
+  ]
+};
+let target='',typed='',startTime=null,finished=false,diff='short',timerInt=null,best=0;
+const textBox=document.getElementById('textBox'),hidden=document.getElementById('hiddenInput');
+try{best=parseInt(localStorage.getItem('arcade.typing.best')||'0',10);}catch(e){}
+document.getElementById('best').textContent='Best '+best;
+function pick(){const arr=TEXTS[diff];return arr[Math.floor(Math.random()*arr.length)];}
+function render(){
+  textBox.innerHTML='';
+  for(let i=0;i<target.length;i++){
+    const span=document.createElement('span');span.className='ch';span.textContent=target[i];
+    if(i<typed.length)span.classList.add(typed[i]===target[i]?'correct':'wrong');
+    else if(i===typed.length)span.classList.add('current');
+    else span.classList.add('pending');
+    textBox.appendChild(span);
+  }
+}
+function newText(){
+  target=pick();typed='';startTime=null;finished=false;
+  clearInterval(timerInt);
+  document.getElementById('wpm').textContent='WPM 0';
+  document.getElementById('acc').textContent='Acc 100%';
+  document.getElementById('time').textContent='0.0s';
+  document.getElementById('hint').textContent='Click the text and start typing';
+  render();hidden.value='';hidden.focus();
+}
+function updateStats(){
+  const elapsed=(Date.now()-startTime)/1000;
+  document.getElementById('time').textContent=elapsed.toFixed(1)+'s';
+  const words=typed.length/5;
+  const wpm=elapsed>0?Math.round(words/(elapsed/60)):0;
+  document.getElementById('wpm').textContent='WPM '+wpm;
+  let correct=0;for(let i=0;i<typed.length;i++)if(typed[i]===target[i])correct++;
+  const acc=typed.length?Math.round(correct/typed.length*100):100;
+  document.getElementById('acc').textContent='Acc '+acc+'%';
+  return {wpm,acc};
+}
+hidden.addEventListener('input',e=>{
+  if(finished)return;
+  typed=hidden.value.slice(0,target.length);
+  if(!startTime){startTime=Date.now();timerInt=setInterval(updateStats,100);document.getElementById('hint').textContent='';}
+  render();
+  const stats=updateStats();
+  if(typed.length>=target.length){
+    finished=true;clearInterval(timerInt);
+    if(stats.wpm>best){best=stats.wpm;try{localStorage.setItem('arcade.typing.best',String(best));}catch(e){}document.getElementById('best').textContent='Best '+best;document.getElementById('hint').textContent='🎉 New best! '+stats.wpm+' WPM at '+stats.acc+'% accuracy';}
+    else document.getElementById('hint').textContent='Done! '+stats.wpm+' WPM at '+stats.acc+'% accuracy';
+  }
+});
+textBox.addEventListener('click',()=>hidden.focus());
+document.querySelectorAll('#modeRow button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#modeRow button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');diff=b.dataset.d;newText();
+}));
+document.getElementById('restartBtn').addEventListener('click',newText);
+newText();
+</script>
+</body>
+</html>

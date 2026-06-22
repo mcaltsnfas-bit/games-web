@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+<rect width="400" height="240" fill="#0a0d14"/>
+<rect x="70" y="80" width="260" height="80" rx="10" fill="#11161f" stroke="#2a3550"/>
+<g font-family="monospace" font-size="20" font-weight="700">
+<text x="90" y="128" fill="#3ee08a">type</text>
+<text x="150" y="128" fill="#3ee08a">fast</text>
+<rect x="205" y="110" width="16" height="24" rx="2" fill="#2dd4f0"/>
+<text x="207" y="128" fill="#04222b">e</text>
+<text x="228" y="128" fill="#5b6376">r</text>
+</g>
+<g>
+<rect x="100" y="180" width="28" height="28" rx="4" fill="#161c28" stroke="#2a3550"/><text x="114" y="200" font-family="monospace" font-size="14" fill="#8d96a8" text-anchor="middle">A</text>
+<rect x="134" y="180" width="28" height="28" rx="4" fill="#161c28" stroke="#2a3550"/><text x="148" y="200" font-family="monospace" font-size="14" fill="#8d96a8" text-anchor="middle">S</text>
+<rect x="168" y="180" width="28" height="28" rx="4" fill="#2dd4f0" stroke="#2dd4f0"/><text x="182" y="200" font-family="monospace" font-size="14" fill="#04222b" text-anchor="middle">D</text>
+<rect x="202" y="180" width="28" height="28" rx="4" fill="#161c28" stroke="#2a3550"/><text x="216" y="200" font-family="monospace" font-size="14" fill="#8d96a8" text-anchor="middle">F</text>
+<rect x="236" y="180" width="60" height="28" rx="4" fill="#161c28" stroke="#2a3550"/>
+</g>
+<text x="300" y="60" font-size="28">⌨️</text>
+</svg>

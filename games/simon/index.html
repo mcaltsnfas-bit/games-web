@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎵</text></svg>">
+<title>Simon — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .wrap{display:flex;flex-direction:column;min-height:100vh}
+  .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:20px}
+  .scores{display:flex;gap:14px}
+  .stat{font-family:var(--font-mono);font-size:13px;color:var(--amber);background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 16px}
+  .simon{position:relative;width:300px;height:300px;border-radius:50%;background:var(--bg-recess);border:3px solid var(--border-strong);overflow:hidden}
+  @media(max-width:400px){.simon{width:260px;height:260px}}
+  .pad{position:absolute;width:50%;height:50%;cursor:pointer;opacity:.55;transition:opacity .1s;border:2px solid #060809}
+  .pad.lit{opacity:1}
+  .pad.green{top:0;left:0;background:#3ee08a;border-radius:100% 0 0 0}
+  .pad.red{top:0;right:0;background:#ff3d7f;border-radius:0 100% 0 0}
+  .pad.yellow{bottom:0;left:0;background:#ffce45;border-radius:0 0 0 100%}
+  .pad.blue{bottom:0;right:0;background:#2dd4f0;border-radius:0 0 100% 0}
+  .center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36%;height:36%;border-radius:50%;background:var(--bg-panel);border:2px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:18px;color:var(--ink)}
+  .start-hint{font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);text-align:center}
+  .mode-row{display:flex;gap:8px}
+  .mode-row button{font-family:var(--font-mono);font-size:11px;padding:7px 12px;background:var(--bg-panel-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--ink-dim);cursor:pointer}
+  .mode-row button.active{border-color:var(--cyan);color:var(--cyan)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">SIMON</span><span style="width:50px"></span>
+  </div>
+  <div class="stage">
+    <div class="scores">
+      <div class="stat" id="round">Round 0</div>
+      <div class="stat" id="best">Best 0</div>
+    </div>
+    <div class="mode-row" id="modeRow">
+      <button data-s="normal" class="active">Normal</button>
+      <button data-s="fast">Fast</button>
+    </div>
+    <div class="simon" id="simon">
+      <div class="pad green" data-i="0"></div>
+      <div class="pad red" data-i="1"></div>
+      <div class="pad yellow" data-i="2"></div>
+      <div class="pad blue" data-i="3"></div>
+      <div class="center" id="center">▶</div>
+    </div>
+    <div class="start-hint" id="hint">Tap the center to start</div>
+  </div>
+</div>
+<script>
+const PADS=['green','red','yellow','blue'];
+const FREQ=[330,392,494,587];
+let seq=[],input=[],round=0,best=0,playing=false,acceptingInput=false,speed='normal';
+const els=PADS.map((_,i)=>document.querySelector('.pad[data-i="'+i+'"]'));
+let audioCtx=null;
+function beep(i,dur){
+  try{
+    if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.frequency.value=FREQ[i];o.type='sine';
+    o.connect(g);g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(.18,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur/1000);
+    o.start();o.stop(audioCtx.currentTime+dur/1000);
+  }catch(e){}
+}
+function light(i,dur){
+  els[i].classList.add('lit');beep(i,dur);
+  setTimeout(()=>els[i].classList.remove('lit'),dur);
+}
+function delayFor(){return speed==='fast'?260:420;}
+async function playSeq(){
+  acceptingInput=false;
+  document.getElementById('hint').textContent='Watch…';
+  await wait(500);
+  for(const i of seq){ light(i,delayFor()-80); await wait(delayFor()); }
+  acceptingInput=true;
+  document.getElementById('hint').textContent='Your turn';
+}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+function nextRound(){
+  input=[];round++;
+  document.getElementById('round').textContent='Round '+round;
+  seq.push(Math.floor(Math.random()*4));
+  playSeq();
+}
+function start(){
+  if(playing)return;
+  playing=true;seq=[];round=0;
+  document.getElementById('center').textContent='●';
+  nextRound();
+}
+function fail(){
+  playing=false;acceptingInput=false;
+  if(round-1>best){best=round-1;document.getElementById('best').textContent='Best '+best;}
+  document.getElementById('center').textContent='▶';
+  document.getElementById('hint').textContent='Wrong! Reached round '+round+'. Tap to retry';
+  // flash all red
+  els.forEach(e=>e.classList.add('lit'));
+  setTimeout(()=>els.forEach(e=>e.classList.remove('lit')),400);
+}
+els.forEach((el,i)=>el.addEventListener('click',()=>{
+  if(!acceptingInput||!playing)return;
+  light(i,200);
+  input.push(i);
+  const idx=input.length-1;
+  if(input[idx]!==seq[idx]){fail();return;}
+  if(input.length===seq.length){
+    acceptingInput=false;
+    setTimeout(nextRound,650);
+  }
+}));
+document.getElementById('center').addEventListener('click',()=>{ if(!playing)start(); });
+document.querySelectorAll('#modeRow button').forEach(b=>b.addEventListener('click',()=>{
+  if(playing)return;
+  document.querySelectorAll('#modeRow button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');speed=b.dataset.s;
+}));
+</script>
+</body>
+</html>

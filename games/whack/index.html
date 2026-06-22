@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔨</text></svg>">
+<title>Whack-a-Mole — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .wrap{display:flex;flex-direction:column;min-height:100vh}
+  .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:18px}
+  .scores{display:flex;gap:14px}
+  .stat{font-family:var(--font-mono);font-size:14px;color:var(--amber);background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 16px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .hole{width:96px;height:96px;border-radius:50%;background:var(--bg-recess);border:2px solid var(--border-strong);position:relative;overflow:hidden;cursor:pointer;display:flex;align-items:flex-end;justify-content:center}
+  @media(max-width:420px){.hole{width:80px;height:80px}}
+  .mole{font-size:48px;transform:translateY(110%);transition:transform .12s;user-select:none}
+  .mole.up{transform:translateY(10%)}
+  .mole.bomb{}
+  .start-overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(6,8,9,.85)}
+  .start-overlay.hide{display:none}
+  .so__c{text-align:center}
+  .so__t{font-family:var(--font-display);font-size:20px;margin-bottom:8px}
+  .so__d{font-family:var(--font-mono);font-size:13px;color:var(--ink-dim);margin-bottom:18px}
+  .hint{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">WHACK-A-MOLE</span><span style="width:50px"></span>
+  </div>
+  <div class="stage">
+    <div class="scores">
+      <div class="stat" id="score">Score 0</div>
+      <div class="stat" id="time">Time 30</div>
+      <div class="stat" id="best">Best 0</div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="hint">Hit the moles 🐹 — avoid the bombs 💣</div>
+  </div>
+</div>
+<div class="start-overlay" id="startOverlay">
+  <div class="so__c">
+    <div class="so__t" id="soT">Whack-a-Mole</div>
+    <div class="so__d" id="soD">30 seconds. Hit moles, dodge bombs.</div>
+    <button class="btn btn--solid" id="startBtn">Start</button>
+  </div>
+</div>
+<script>
+const HOLES=9;
+let score,timeLeft,playing,best=0,spawnTimer,countdownTimer,moles=[];
+const gridEl=document.getElementById('grid');
+try{best=parseInt(localStorage.getItem('arcade.whack.best')||'0',10);}catch(e){}
+document.getElementById('best').textContent='Best '+best;
+function buildGrid(){
+  gridEl.innerHTML='';moles=[];
+  for(let i=0;i<HOLES;i++){
+    const hole=document.createElement('div');hole.className='hole';
+    const mole=document.createElement('div');mole.className='mole';
+    hole.appendChild(mole);
+    hole.addEventListener('click',()=>whack(i));
+    gridEl.appendChild(hole);
+    moles.push({el:mole,up:false,type:null,timeout:null});
+  }
+}
+function popRandom(){
+  const free=moles.map((m,i)=>m.up?null:i).filter(i=>i!==null);
+  if(!free.length)return;
+  const i=free[Math.floor(Math.random()*free.length)];
+  const m=moles[i];
+  const isBomb=Math.random()<0.22;
+  m.up=true;m.type=isBomb?'bomb':'mole';
+  m.el.textContent=isBomb?'💣':'🐹';
+  m.el.classList.add('up');
+  const upTime=600+Math.random()*700;
+  m.timeout=setTimeout(()=>hide(i),upTime);
+}
+function hide(i){
+  const m=moles[i];m.up=false;m.type=null;m.el.classList.remove('up');
+  clearTimeout(m.timeout);
+}
+function whack(i){
+  if(!playing)return;
+  const m=moles[i];
+  if(!m.up)return;
+  if(m.type==='bomb'){
+    score=Math.max(0,score-5);
+    flash(m.el);
+  }else{
+    score++;
+  }
+  document.getElementById('score').textContent='Score '+score;
+  hide(i);
+}
+function flash(el){el.textContent='💥';setTimeout(()=>{el.textContent='';},200);}
+function tick(){
+  timeLeft--;
+  document.getElementById('time').textContent='Time '+timeLeft;
+  if(timeLeft<=0)end();
+}
+function spawnLoop(){
+  if(!playing)return;
+  popRandom();
+  // speed up as time runs down
+  const base=Math.max(380,820-(30-timeLeft)*15);
+  spawnTimer=setTimeout(spawnLoop,base);
+}
+function start(){
+  score=0;timeLeft=30;playing=true;
+  document.getElementById('score').textContent='Score 0';
+  document.getElementById('time').textContent='Time 30';
+  document.getElementById('startOverlay').classList.add('hide');
+  buildGrid();
+  spawnLoop();
+  countdownTimer=setInterval(tick,1000);
+}
+function end(){
+  playing=false;
+  clearTimeout(spawnTimer);clearInterval(countdownTimer);
+  moles.forEach((m,i)=>hide(i));
+  if(score>best){best=score;try{localStorage.setItem('arcade.whack.best',String(best));}catch(e){}}
+  document.getElementById('best').textContent='Best '+best;
+  document.getElementById('soT').textContent='Time! Score: '+score;
+  document.getElementById('soD').textContent=score>=best&&score>0?'New best!':'Best: '+best;
+  document.getElementById('startBtn').textContent='Play again';
+  document.getElementById('startOverlay').classList.remove('hide');
+}
+document.getElementById('startBtn').addEventListener('click',start);
+buildGrid();
+</script>
+</body>
+</html>

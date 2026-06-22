@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+<rect width="400" height="240" fill="#0a0d14"/>
+<g>
+<circle cx="130" cy="80" r="34" fill="#060809" stroke="#2a3550"/><circle cx="200" cy="80" r="34" fill="#060809" stroke="#2a3550"/><circle cx="270" cy="80" r="34" fill="#060809" stroke="#2a3550"/>
+<circle cx="130" cy="160" r="34" fill="#060809" stroke="#2a3550"/><circle cx="200" cy="160" r="34" fill="#060809" stroke="#2a3550"/><circle cx="270" cy="160" r="34" fill="#060809" stroke="#2a3550"/>
+<text x="130" y="92" font-size="34" text-anchor="middle">🐹</text>
+<text x="270" y="172" font-size="34" text-anchor="middle">🐹</text>
+<text x="200" y="172" font-size="32" text-anchor="middle">💣</text>
+<text x="320" y="60" font-size="40">🔨</text>
+</g>
+</svg>

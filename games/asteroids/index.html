@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+<title>Asteroids — Web Arcade</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .wrap{display:flex;flex-direction:column;height:100vh}
+  .stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px}
+  canvas{background:#060809;border:1px solid var(--border-strong);border-radius:8px;max-width:100%;touch-action:none}
+  .scores{display:flex;gap:14px}
+  .stat{font-family:var(--font-mono);font-size:13px;color:var(--amber);background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:7px 14px}
+  .hint{font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);text-align:center}
+  .overlay{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(6,8,9,.85)}
+  .overlay.show{display:flex}
+  .overlay__t{font-family:var(--font-display);font-size:22px;margin-bottom:8px;text-align:center}
+  .overlay__d{font-family:var(--font-mono);font-size:13px;color:var(--ink-dim);margin-bottom:18px;text-align:center}
+  .overlay__c{text-align:center}
+  .mobile{display:none}
+  @media(pointer:coarse){.mobile{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}.mobile button{padding:12px 16px;font-size:14px;background:var(--bg-panel-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--ink)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
+    <span class="game-topbar__brand">ASTEROIDS</span><span style="width:50px"></span>
+  </div>
+  <div class="stage">
+    <div class="scores">
+      <div class="stat" id="score">Score 0</div>
+      <div class="stat" id="lives">Ships 3</div>
+      <div class="stat" id="best">Best 0</div>
+    </div>
+    <canvas id="game" width="600" height="400"></canvas>
+    <div class="hint">← → rotate · ↑ thrust · space shoot</div>
+    <div class="mobile">
+      <button id="mL">⟲</button><button id="mThrust">▲ thrust</button><button id="mR">⟳</button><button id="mFire">● fire</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="overlay"><div class="overlay__c"><div class="overlay__t" id="ovT"></div><div class="overlay__d" id="ovD"></div><button class="btn btn--solid" id="ovBtn">Play again</button></div></div>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height;
+let ship,asteroids,bullets,score,lives,best,wave,running,invuln;
+try{best=parseInt(localStorage.getItem('arcade.asteroids.best')||'0',10);}catch(e){best=0;}
+document.getElementById('best').textContent='Best '+best;
+const keys={};
+function wrap(o){ if(o.x<0)o.x+=W; if(o.x>=W)o.x-=W; if(o.y<0)o.y+=H; if(o.y>=H)o.y-=H; }
+function newShip(){ return {x:W/2,y:H/2,a:-Math.PI/2,vx:0,vy:0,r:11}; }
+function makeAsteroid(x,y,size){
+  const ang=Math.random()*Math.PI*2,sp=(4-size)*0.35+0.4;
+  return {x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,size,r:size*14,
+    verts:Array.from({length:9},()=>0.7+Math.random()*0.5),rot:Math.random()*0.04-0.02,ang:0};
+}
+function spawnWave(){
+  asteroids=[];
+  const n=2+wave;
+  for(let i=0;i<n;i++){
+    let x,y;do{x=Math.random()*W;y=Math.random()*H;}while(Math.hypot(x-ship.x,y-ship.y)<120);
+    asteroids.push(makeAsteroid(x,y,3));
+  }
+}
+function reset(){
+  ship=newShip();bullets=[];score=0;lives=3;wave=1;running=true;invuln=90;
+  document.getElementById('score').textContent='Score 0';
+  document.getElementById('lives').textContent='Ships 3';
+  document.getElementById('overlay').classList.remove('show');
+  spawnWave();
+}
+function shoot(){
+  if(!running)return;
+  if(bullets.length>=5)return;
+  bullets.push({x:ship.x+Math.cos(ship.a)*ship.r,y:ship.y+Math.sin(ship.a)*ship.r,vx:Math.cos(ship.a)*7+ship.vx,vy:Math.sin(ship.a)*7+ship.vy,life:55});
+}
+document.addEventListener('keydown',e=>{keys[e.key]=true;if(e.key===' '){e.preventDefault();shoot();}if(['ArrowUp','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+function bindBtn(id,key){const el=document.getElementById(id);if(!el)return;
+  if(id==='mFire'){el.addEventListener('touchstart',e=>{e.preventDefault();shoot();});el.addEventListener('mousedown',shoot);return;}
+  ['touchstart','mousedown'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();keys[key]=true;}));
+  ['touchend','mouseup','mouseleave','touchcancel'].forEach(ev=>el.addEventListener(ev,()=>keys[key]=false));
+}
+bindBtn('mL','ArrowLeft');bindBtn('mR','ArrowRight');bindBtn('mThrust','ArrowUp');bindBtn('mFire');
+function hitShip(){
+  lives--;document.getElementById('lives').textContent='Ships '+lives;
+  if(lives<=0){end();return;}
+  ship=newShip();invuln=90;
+}
+function end(){
+  running=false;
+  if(score>best){best=score;try{localStorage.setItem('arcade.asteroids.best',String(best));}catch(e){}}
+  document.getElementById('best').textContent='Best '+best;
+  document.getElementById('ovT').textContent='Game Over';
+  document.getElementById('ovT').style.color='var(--magenta)';
+  document.getElementById('ovD').textContent='Score: '+score+(score>=best&&score>0?'  (NEW BEST!)':'');
+  document.getElementById('overlay').classList.add('show');
+}
+function update(){
+  if(!running)return;
+  if(invuln>0)invuln--;
+  if(keys['ArrowLeft'])ship.a-=0.07;
+  if(keys['ArrowRight'])ship.a+=0.07;
+  if(keys['ArrowUp']){ship.vx+=Math.cos(ship.a)*0.13;ship.vy+=Math.sin(ship.a)*0.13;}
+  ship.vx*=0.99;ship.vy*=0.99;
+  ship.x+=ship.vx;ship.y+=ship.vy;wrap(ship);
+  bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;wrap(b);});
+  bullets=bullets.filter(b=>b.life>0);
+  asteroids.forEach(a=>{a.x+=a.vx;a.y+=a.vy;a.ang+=a.rot;wrap(a);});
+  // bullet vs asteroid
+  for(let i=asteroids.length-1;i>=0;i--){
+    const a=asteroids[i];
+    for(let j=bullets.length-1;j>=0;j--){
+      const b=bullets[j];
+      if(Math.hypot(b.x-a.x,b.y-a.y)<a.r){
+        bullets.splice(j,1);
+        score+=(4-a.size)*20;document.getElementById('score').textContent='Score '+score;
+        if(a.size>1){asteroids.push(makeAsteroid(a.x,a.y,a.size-1));asteroids.push(makeAsteroid(a.x,a.y,a.size-1));}
+        asteroids.splice(i,1);
+        break;
+      }
+    }
+  }
+  // ship vs asteroid
+  if(invuln<=0){
+    for(const a of asteroids){ if(Math.hypot(ship.x-a.x,ship.y-a.y)<a.r+ship.r){hitShip();break;} }
+  }
+  if(asteroids.length===0){wave++;ship=newShip();invuln=60;spawnWave();}
+}
+function draw(){
+  ctx.fillStyle='#060809';ctx.fillRect(0,0,W,H);
+  // stars
+  ctx.fillStyle='rgba(238,241,246,0.18)';
+  for(let i=0;i<30;i++)ctx.fillRect((i*97)%W,(i*53)%H,1.5,1.5);
+  // asteroids
+  ctx.strokeStyle='#8d96a8';ctx.lineWidth=1.5;
+  asteroids.forEach(a=>{
+    ctx.save();ctx.translate(a.x,a.y);ctx.rotate(a.ang);ctx.beginPath();
+    a.verts.forEach((v,k)=>{const ang=(k/a.verts.length)*Math.PI*2,rr=a.r*v;const x=Math.cos(ang)*rr,y=Math.sin(ang)*rr;k?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    ctx.closePath();ctx.stroke();ctx.restore();
+  });
+  // bullets
+  ctx.fillStyle='#ffce45';bullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,2.5,0,7);ctx.fill();});
+  // ship
+  if(running&&(invuln<=0||Math.floor(invuln/5)%2===0)){
+    ctx.save();ctx.translate(ship.x,ship.y);ctx.rotate(ship.a);
+    ctx.strokeStyle='#2dd4f0';ctx.lineWidth=2;ctx.beginPath();
+    ctx.moveTo(ship.r,0);ctx.lineTo(-ship.r*0.7,-ship.r*0.7);ctx.lineTo(-ship.r*0.4,0);ctx.lineTo(-ship.r*0.7,ship.r*0.7);ctx.closePath();ctx.stroke();
+    if(keys['ArrowUp']){ctx.strokeStyle='#ff9f45';ctx.beginPath();ctx.moveTo(-ship.r*0.4,0);ctx.lineTo(-ship.r*1.1,0);ctx.stroke();}
+    ctx.restore();
+  }
+}
+function loop(){requestAnimationFrame(loop);update();draw();}
+document.getElementById('ovBtn').addEventListener('click',reset);
+reset();loop();
+</script>
+</body>
+</html>
