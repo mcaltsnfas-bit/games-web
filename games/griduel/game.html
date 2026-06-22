@@ -399,7 +399,10 @@ document.getElementById('rematchBtn').addEventListener('click', () => {
 });
 
 /* ---------- connection handshake ---------- */
+let gameStarted = false;
 function startGame(){
+  if (gameStarted) return;       // guard: only start once
+  gameStarted = true;
   statusEl.style.display='none';
   hud.style.display='block';
   badge.textContent='CONNECTED';
@@ -410,9 +413,6 @@ function startGame(){
 
 if (db && CODE){
   roomRef = db.ref('rooms/'+CODE);
-  // write my presence immediately
-  roomRef.child('players/'+ROLE).set({ x:0, y:0, angle:0, hp:100, alive:true });
-  roomRef.child('meta/'+ROLE).set(true);
 
   if (ROLE==='host'){
     statusTitle.textContent='WAITING FOR OPPONENT';
@@ -420,19 +420,54 @@ if (db && CODE){
     statusCode.textContent=CODE;
     statusMsg.textContent='Share this code';
     statusSub.textContent='The match starts the moment your friend joins.';
-    // wait for guest
-    roomRef.child('meta/guest').on('value', s => { if (s.val()===true) startGame(); });
   } else {
     statusTitle.textContent='JOINING ROOM '+CODE;
-    statusMsg.textContent='Connecting to host…';
-    // confirm the host exists; if not, still wait briefly (host may join after)
-    roomRef.child('meta/host').on('value', s => {
-      if (s.val()===true) startGame();
-      else { statusSub.textContent="Waiting for the host to open the game…"; }
-    });
+    statusMsg.textContent='Connecting…';
   }
 
-  // clean up presence on leave
+  // Write my presence. The .then/.catch tells us if the DB rules are blocking us.
+  roomRef.child('meta/'+ROLE).set(true)
+    .then(() => {
+      badge.textContent='ROOM OK';
+      // also write an initial player record
+      return roomRef.child('players/'+ROLE).set({ x:0, y:0, angle:0, hp:100, alive:true });
+    })
+    .catch(err => {
+      spinner.style.display='none';
+      statusTitle.textContent='SERVER BLOCKED THE CONNECTION';
+      statusMsg.textContent='';
+      statusSub.innerHTML = 'Your Firebase database rules are denying access. '
+        + 'Open the Firebase console &rarr; Realtime Database &rarr; Rules, set both '
+        + '<code>.read</code> and <code>.write</code> to <code>true</code>, and publish. '
+        + '(Error: ' + (err && err.code ? err.code : 'permission denied') + ')';
+      badge.textContent='BLOCKED';
+    });
+
+  // ONE listener on the whole room: start as soon as BOTH meta flags are present.
+  roomRef.child('meta').on('value', s => {
+    const m = s.val() || {};
+    if (m.host === true && m.guest === true) startGame();
+  }, err => {
+    // read denied — same rules problem
+    spinner.style.display='none';
+    statusTitle.textContent='SERVER BLOCKED THE CONNECTION';
+    statusSub.innerHTML = 'Firebase denied read access. Set database rules '
+      + '<code>.read</code> and <code>.write</code> to <code>true</code> and publish.';
+    badge.textContent='BLOCKED';
+  });
+
+  // If nothing happens within 12s, surface a helpful hint instead of hanging forever.
+  setTimeout(() => {
+    if (!gameStarted){
+      if (ROLE==='guest'){
+        statusSub.textContent='Still waiting. Make sure the host has clicked "Enter Game" on their screen — both players must be in at the same time.';
+      } else {
+        statusSub.textContent='Still waiting for your opponent to join with the code above.';
+      }
+    }
+  }, 12000);
+
+  // clean up my presence when I leave so stale flags don't linger
   roomRef.child('meta/'+ROLE).onDisconnect().remove();
   roomRef.child('players/'+ROLE).onDisconnect().remove();
 }
