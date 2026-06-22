@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#1a1206"/>
+      <stop offset="100%" stop-color="#0a0d14"/>
+    </radialGradient>
+    <radialGradient id="ck" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#e8b96a"/>
+      <stop offset="60%" stop-color="#c8923f"/>
+      <stop offset="100%" stop-color="#9a6b28"/>
+    </radialGradient>
+  </defs>
+  <rect width="400" height="240" fill="url(#bg)"/>
+
+  <!-- glow -->
+  <circle cx="200" cy="120" r="95" fill="#ffce45" opacity="0.12"/>
+
+  <!-- big cookie -->
+  <circle cx="200" cy="120" r="78" fill="url(#ck)" stroke="#7d551d" stroke-width="3"/>
+  <circle cx="175" cy="92"  r="10" fill="#5a3d18"/>
+  <circle cx="225" cy="105" r="8"  fill="#5a3d18"/>
+  <circle cx="195" cy="132" r="11" fill="#5a3d18"/>
+  <circle cx="235" cy="148" r="7"  fill="#5a3d18"/>
+  <circle cx="165" cy="140" r="8"  fill="#5a3d18"/>
+  <circle cx="210" cy="165" r="6"  fill="#5a3d18"/>
+  <circle cx="248" cy="118" r="6"  fill="#5a3d18"/>
+
+  <!-- floating +numbers -->
+  <text x="300" y="70"  font-family="monospace" font-size="18" font-weight="700" fill="#ffce45" opacity="0.9">+12</text>
+  <text x="78"  y="95"  font-family="monospace" font-size="15" font-weight="700" fill="#ffce45" opacity="0.6">+8</text>
+  <text x="310" y="150" font-family="monospace" font-size="14" font-weight="700" fill="#ffce45" opacity="0.5">+5</text>
+
+  <!-- sparkle -->
+  <text x="120" y="55" font-size="20">✨</text>
+  <text x="285" y="195" font-size="18">🌟</text>
+</svg>
