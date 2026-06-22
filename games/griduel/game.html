@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grid Duel — Match</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  body { overflow:hidden; }
+  .wrap { display:flex; flex-direction:column; height:100vh; }
+  .stage { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; background:#060809; }
+  canvas { display:block; image-rendering:pixelated; cursor:crosshair; }
+
+  .status { position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:rgba(6,8,9,0.95); text-align:center; padding:20px; }
+  .status__inner { max-width:320px; }
+  .status h2 { font-family:var(--font-display); font-size:14px; color:var(--cyan); margin:0 0 14px; line-height:1.7; }
+  .status p  { font-family:var(--font-mono); font-size:13px; color:var(--amber); margin:0 0 8px; }
+  .status .code { font-family:var(--font-display); font-size:24px; color:var(--green); letter-spacing:0.14em; margin:14px 0; }
+  .status .sub { font-size:12px; color:var(--ink-dim); line-height:1.6; }
+  .spinner { width:28px; height:28px; border:3px solid var(--border-strong); border-top-color:var(--cyan); border-radius:50%; margin:16px auto; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .hud { position:absolute; inset:0; pointer-events:none; z-index:3; }
+  .hud__bars { position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; gap:12px; }
+  .hud__p { width:44%; }
+  .hud__lbl { font-family:var(--font-mono); font-size:10px; color:var(--ink-dim); margin-bottom:3px; letter-spacing:0.07em; }
+  .hud__hp { height:9px; border-radius:5px; background:rgba(255,255,255,0.07); border:1px solid var(--border-strong); overflow:hidden; }
+  .hud__hpf { height:100%; transition:width 0.12s; background:var(--cyan); }
+  .hud__p--opp { text-align:right; }
+  .hud__p--opp .hud__lbl { text-align:right; }
+  .hud__p--opp .hud__hpf { background:var(--magenta); margin-left:auto; }
+  .hud__ammo { font-family:var(--font-mono); font-size:10px; color:var(--amber); margin-top:4px; }
+  .hud__mode { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); font-family:var(--font-mono); font-size:11px; color:var(--ink); background:rgba(6,8,9,0.8); padding:6px 14px; border-radius:20px; border:1px solid var(--border-strong); white-space:nowrap; }
+  .hud__cd { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-family:var(--font-display); font-size:54px; color:var(--cyan); text-shadow:0 0 24px rgba(45,212,240,0.7); }
+
+  .end { position:absolute; inset:0; z-index:15; display:none; align-items:center; justify-content:center; background:rgba(6,8,9,0.85); }
+  .end.show { display:flex; }
+  .end__c { text-align:center; }
+  .end__t { font-family:var(--font-display); font-size:28px; margin-bottom:8px; }
+  .end__d { font-family:var(--font-mono); font-size:12px; color:var(--ink-dim); margin-bottom:20px; }
+  .end__row { display:flex; gap:10px; justify-content:center; }
+  .badge { font-family:var(--font-mono); font-size:10px; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="game-topbar">
+    <a class="game-topbar__back" href="index.html">&larr; Leave</a>
+    <span class="game-topbar__brand">GRID DUEL</span>
+    <span class="badge" id="badge">CONNECTING</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="game"></canvas>
+
+    <div class="hud" id="hud" style="display:none">
+      <div class="hud__bars">
+        <div class="hud__p">
+          <div class="hud__lbl">YOU</div>
+          <div class="hud__hp"><div class="hud__hpf" id="hpMe" style="width:100%"></div></div>
+          <div class="hud__ammo" id="wallsLeft"></div>
+        </div>
+        <div class="hud__p hud__p--opp">
+          <div class="hud__lbl">OPPONENT</div>
+          <div class="hud__hp"><div class="hud__hpf" id="hpOpp" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div class="hud__mode" id="mode">SHOOT — right-click or E to BUILD</div>
+      <div class="hud__cd" id="cd" style="display:none"></div>
+    </div>
+
+    <div class="end" id="end">
+      <div class="end__c">
+        <div class="end__t" id="endT"></div>
+        <div class="end__d" id="endD"></div>
+        <div class="end__row">
+          <button class="btn btn--solid" id="rematchBtn">Rematch</button>
+          <a class="btn" href="index.html">Leave</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status">
+      <div class="status__inner">
+        <h2 id="statusTitle">CONNECTING…</h2>
+        <div class="spinner" id="spinner"></div>
+        <div class="code" id="statusCode" style="display:none"></div>
+        <p id="statusMsg"></p>
+        <div class="sub" id="statusSub"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script>
+/* ========================================================
+   GRID DUEL — match page. Reads ?code= & ?role= from URL,
+   connects to Firebase, runs the 1v1 build-and-shoot match.
+   ======================================================== */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB7kuBUtByYa9QVnc5DiTYgRvohWB02L6w",
+  authDomain: "games-web-8ce11.firebaseapp.com",
+  databaseURL: "https://games-web-8ce11-default-rtdb.firebaseio.com",
+  projectId: "games-web-8ce11",
+  storageBucket: "games-web-8ce11.firebasestorage.app",
+  messagingSenderId: "507087897615",
+  appId: "1:507087897615:web:7a3bb6f03883d09b5d4f7a"
+};
+
+const params  = new URLSearchParams(location.search);
+const CODE     = (params.get('code') || '').toUpperCase();
+const ROLE     = params.get('role') === 'host' ? 'host' : 'guest';
+const OPP_ROLE = ROLE === 'host' ? 'guest' : 'host';
+
+const statusEl    = document.getElementById('status');
+const statusTitle = document.getElementById('statusTitle');
+const statusMsg   = document.getElementById('statusMsg');
+const statusSub   = document.getElementById('statusSub');
+const statusCode  = document.getElementById('statusCode');
+const spinner     = document.getElementById('spinner');
+const badge       = document.getElementById('badge');
+
+let db, roomRef;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+} catch (e) {
+  showFatal('Could not reach the game server', 'Check your internet connection and try again.');
+}
+
+if (!CODE) {
+  showFatal('No room code', 'Go back and create or join a room.');
+}
+
+function showFatal(title, sub){
+  spinner.style.display = 'none';
+  statusTitle.textContent = title;
+  statusSub.textContent = sub;
+  badge.textContent = 'OFFLINE';
+}
+
+/* ---------- constants ---------- */
+const CELL = 20, COLS = 40, ROWS = 24;
+const W = COLS*CELL, H = ROWS*CELL;
+const PLAYER_R = 14, PLAYER_SPEED = 175;
+const BULLET_R = 3, BULLET_SPEED = 400, BULLET_RANGE = 600;
+const HIT_DMG = 25, MAX_WALLS = 12, FIRE_CD = 0.3, BUILD_RANGE = 130;
+const CYAN = '#2dd4f0', MAGENTA = '#ff3d7f';
+
+/* ---------- canvas ---------- */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+
+function resize(){
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const scale = Math.min(sw/W, sh/H, 1);
+  canvas.style.width = (W*scale)+'px';
+  canvas.style.height = (H*scale)+'px';
+  canvas.width = W; canvas.height = H;
+}
+resize();
+window.addEventListener('resize', resize);
+function toCanvas(cx, cy){ const r = canvas.getBoundingClientRect(); return { x:(cx-r.left)*(W/r.width), y:(cy-r.top)*(H/r.height) }; }
+
+/* ---------- state ---------- */
+let matchActive = false;
+let me  = { x:0, y:0, angle:0, hp:100, alive:true, building:false, wallsLeft:MAX_WALLS };
+let opp = { x:0, y:0, angle:0, hp:100, alive:true };
+let walls = new Map();
+let myBullets = [], oppBullets = [];
+let mouseX = W/2, mouseY = H/2, fireCd = 0, syncTimer = 0;
+let keys = {};
+let seenEvents = new Set();
+let connectedAt = 0;
+
+/* ---------- HUD refs ---------- */
+const hud = document.getElementById('hud');
+const hpMeEl = document.getElementById('hpMe');
+const hpOppEl = document.getElementById('hpOpp');
+const wallsLeftEl = document.getElementById('wallsLeft');
+const modeEl = document.getElementById('mode');
+const cdEl = document.getElementById('cd');
+const endEl = document.getElementById('end');
+const endT = document.getElementById('endT');
+const endD = document.getElementById('endD');
+
+/* ---------- wall + bullet helpers ---------- */
+function hasWall(cx, cy){ return walls.has(cx+','+cy); }
+
+function resolve(px, py){
+  let x = Math.max(PLAYER_R, Math.min(W-PLAYER_R, px));
+  let y = Math.max(PLAYER_R, Math.min(H-PLAYER_R, py));
+  const cX = Math.floor(x/CELL), cY = Math.floor(y/CELL);
+  for (let dy=-1; dy<=1; dy++) for (let dx=-1; dx<=1; dx++){
+    const cx=cX+dx, cy=cY+dy;
+    if (!hasWall(cx,cy)||cx<0||cy<0||cx>=COLS||cy>=ROWS) continue;
+    const wx=cx*CELL, wy=cy*CELL;
+    const clX=Math.max(wx,Math.min(wx+CELL,x)), clY=Math.max(wy,Math.min(wy+CELL,y));
+    const dSq=(x-clX)**2+(y-clY)**2;
+    if (dSq>=PLAYER_R*PLAYER_R) continue;
+    if (dSq<1e-6){
+      const fx=x-(wx+CELL/2), fy=y-(wy+CELL/2);
+      if (Math.abs(fx)>=Math.abs(fy)) x = fx>0 ? wx+CELL+PLAYER_R : wx-PLAYER_R;
+      else y = fy>0 ? wy+CELL+PLAYER_R : wy-PLAYER_R;
+    } else {
+      const d=Math.sqrt(dSq);
+      x=clX+(x-clX)/d*PLAYER_R; y=clY+(y-clY)/d*PLAYER_R;
+    }
+  }
+  return {x,y};
+}
+
+function bulletStep(b){
+  const steps = Math.max(3, Math.ceil(BULLET_SPEED/60/CELL*2));
+  for (let i=1;i<=steps;i++){
+    const t=i/steps;
+    const bx=b.x+b.dx*BULLET_SPEED/60*t, by=b.y+b.dy*BULLET_SPEED/60*t;
+    if (bx<0||bx>=W||by<0||by>=H) return 'border';
+    const cx=Math.floor(bx/CELL), cy=Math.floor(by/CELL);
+    if (hasWall(cx,cy)) return 'wall:'+cx+','+cy;
+    if (b.checkOpp && Math.hypot(bx-opp.x,by-opp.y)<PLAYER_R+BULLET_R) return 'player';
+  }
+  return null;
+}
+
+/* ---------- input ---------- */
+document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key===' ') e.preventDefault(); });
+document.addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+canvas.addEventListener('mousemove', e => { const p=toCanvas(e.clientX,e.clientY); mouseX=p.x; mouseY=p.y; });
+canvas.addEventListener('click', e => { if (!matchActive||!me.alive) return; if (me.building) placeWall(e); else shoot(); });
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (matchActive&&me.alive) toggleBuild(); });
+document.addEventListener('keydown', e => {
+  if (e.key.toLowerCase()==='e' && matchActive && me.alive) toggleBuild();
+  if (e.key===' ' && matchActive && me.alive && !me.building) shoot();
+});
+
+function toggleBuild(){
+  me.building = !me.building;
+  modeEl.textContent = me.building ? 'BUILD — click to place | right-click or E to SHOOT' : 'SHOOT — right-click or E to BUILD';
+}
+function shoot(){
+  if (fireCd>0 || !me.alive) return;
+  fireCd = FIRE_CD;
+  const dx=mouseX-me.x, dy=mouseY-me.y, len=Math.hypot(dx,dy)||1;
+  const ndx=dx/len, ndy=dy/len;
+  myBullets.push({ x:me.x+ndx*(PLAYER_R+4), y:me.y+ndy*(PLAYER_R+4), dx:ndx, dy:ndy, dist:0, checkOpp:true });
+  roomRef.child('events').push({ type:'shot', x:me.x, y:me.y, dx:ndx, dy:ndy, by:ROLE, t:Date.now() });
+}
+function placeWall(e){
+  if (me.wallsLeft<=0) return;
+  const p=toCanvas(e.clientX,e.clientY);
+  const cx=Math.floor(p.x/CELL), cy=Math.floor(p.y/CELL), key=cx+','+cy;
+  if (hasWall(cx,cy)||cx<0||cy<0||cx>=COLS||cy>=ROWS) return;
+  if (Math.hypot(p.x-me.x,p.y-me.y)>BUILD_RANGE) return;
+  me.wallsLeft--;
+  walls.set(key,{owner:ROLE});
+  roomRef.child('walls/'+cx+'_'+cy).set({owner:ROLE});
+}
+
+/* ---------- loop ---------- */
+let lastT=0;
+function update(ts){
+  requestAnimationFrame(update);
+  const dt=Math.min((ts-lastT)/1000,0.05); lastT=ts;
+  if (matchActive && me.alive){
+    let vx=0, vy=0;
+    if (keys['w']||keys['arrowup']) vy-=1;
+    if (keys['s']||keys['arrowdown']) vy+=1;
+    if (keys['a']||keys['arrowleft']) vx-=1;
+    if (keys['d']||keys['arrowright']) vx+=1;
+    const len=Math.hypot(vx,vy)||1;
+    if (vx||vy){ vx=vx/len*PLAYER_SPEED*dt; vy=vy/len*PLAYER_SPEED*dt; }
+    const r=resolve(me.x+vx,me.y+vy); me.x=r.x; me.y=r.y;
+    me.angle=Math.atan2(mouseY-me.y,mouseX-me.x);
+    if (fireCd>0) fireCd-=dt;
+    syncTimer+=dt;
+    if (syncTimer>=1/20){ syncTimer=0; roomRef.child('players/'+ROLE).set({x:me.x,y:me.y,angle:me.angle,hp:me.hp,alive:me.alive}); }
+  }
+  if (matchActive){
+    for (let i=myBullets.length-1;i>=0;i--){
+      const b=myBullets[i], res=bulletStep(b);
+      b.x+=b.dx*BULLET_SPEED/60; b.y+=b.dy*BULLET_SPEED/60; b.dist+=BULLET_SPEED/60;
+      if (res==='player'){ roomRef.child('events').push({type:'hit',target:OPP_ROLE,amount:HIT_DMG,by:ROLE,t:Date.now()}); myBullets.splice(i,1); }
+      else if (res&&res.startsWith('wall:')){ const k=res.slice(5); walls.delete(k); roomRef.child('walls/'+k.replace(',','_')).remove(); myBullets.splice(i,1); }
+      else if (res||b.dist>BULLET_RANGE){ myBullets.splice(i,1); }
+    }
+    for (let i=oppBullets.length-1;i>=0;i--){
+      const b=oppBullets[i], res=bulletStep(b);
+      b.x+=b.dx*BULLET_SPEED/60; b.y+=b.dy*BULLET_SPEED/60; b.dist+=BULLET_SPEED/60;
+      if (res&&res.startsWith('wall:')){ walls.delete(res.slice(5)); oppBullets.splice(i,1); }
+      else if (res||b.dist>BULLET_RANGE){ oppBullets.splice(i,1); }
+    }
+  }
+  updateHUD(); draw();
+}
+
+function draw(){
+  ctx.fillStyle='#0a0d14'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(45,212,240,0.06)'; ctx.lineWidth=0.5;
+  for (let c=0;c<=COLS;c++){ ctx.beginPath(); ctx.moveTo(c*CELL,0); ctx.lineTo(c*CELL,H); ctx.stroke(); }
+  for (let r=0;r<=ROWS;r++){ ctx.beginPath(); ctx.moveTo(0,r*CELL); ctx.lineTo(W,r*CELL); ctx.stroke(); }
+  walls.forEach((data,key) => {
+    const [cx,cy]=key.split(',').map(Number);
+    ctx.fillStyle = data.owner===ROLE ? 'rgba(45,212,240,0.45)' : 'rgba(255,61,127,0.45)';
+    ctx.strokeStyle = data.owner===ROLE ? CYAN : MAGENTA; ctx.lineWidth=1.5;
+    ctx.fillRect(cx*CELL+1,cy*CELL+1,CELL-2,CELL-2);
+    ctx.strokeRect(cx*CELL+1,cy*CELL+1,CELL-2,CELL-2);
+  });
+  if (me.alive && me.building){
+    const cx=Math.floor(mouseX/CELL), cy=Math.floor(mouseY/CELL);
+    const ok=Math.hypot(mouseX-me.x,mouseY-me.y)<BUILD_RANGE && !hasWall(cx,cy) && me.wallsLeft>0;
+    ctx.fillStyle = ok ? 'rgba(45,212,240,0.25)' : 'rgba(255,61,127,0.15)';
+    ctx.fillRect(cx*CELL,cy*CELL,CELL,CELL);
+  }
+  ctx.fillStyle=MAGENTA; oppBullets.forEach(b=>{ ctx.beginPath(); ctx.arc(b.x,b.y,BULLET_R,0,7); ctx.fill(); });
+  ctx.fillStyle=CYAN;    myBullets.forEach(b=>{ ctx.beginPath(); ctx.arc(b.x,b.y,BULLET_R,0,7); ctx.fill(); });
+  if (opp.alive) drawPlayer(opp.x,opp.y,opp.angle,MAGENTA,false);
+  if (me.alive)  drawPlayer(me.x,me.y,me.angle,CYAN,true);
+  if (me.alive && !me.building){
+    ctx.strokeStyle='rgba(238,241,246,0.4)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(mouseX-10,mouseY); ctx.lineTo(mouseX+10,mouseY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mouseX,mouseY-10); ctx.lineTo(mouseX,mouseY+10); ctx.stroke();
+  }
+}
+function drawPlayer(x,y,angle,color,isMe){
+  ctx.save(); ctx.translate(x,y);
+  const g=ctx.createRadialGradient(0,0,0,0,0,PLAYER_R*2);
+  g.addColorStop(0,color+'55'); g.addColorStop(1,'transparent');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,PLAYER_R*2,0,7); ctx.fill();
+  ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=10;
+  ctx.beginPath(); ctx.arc(0,0,PLAYER_R,0,7); ctx.fill(); ctx.shadowBlur=0;
+  ctx.rotate(angle); ctx.fillStyle=isMe?'#04222b':'#2a0418';
+  ctx.beginPath(); ctx.moveTo(PLAYER_R+2,0); ctx.lineTo(PLAYER_R-6,-5); ctx.lineTo(PLAYER_R-6,5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function updateHUD(){
+  hpMeEl.style.width=Math.max(0,me.hp)+'%';
+  hpOppEl.style.width=Math.max(0,opp.hp)+'%';
+  wallsLeftEl.textContent='walls: '+me.wallsLeft;
+}
+
+/* ---------- networking ---------- */
+function subscribe(){
+  roomRef.child('players/'+OPP_ROLE).on('value', s => {
+    if (!s.exists()) return;
+    const d=s.val(); opp.x=d.x; opp.y=d.y; opp.angle=d.angle; opp.hp=d.hp;
+    if (d.alive===false && opp.alive){ opp.alive=false; if (matchActive){ matchActive=false; roomRef.child('state').update({winner:ROLE}); showEnd(true,'You eliminated your opponent'); } }
+  });
+  roomRef.child('walls').on('value', s => {
+    walls.clear();
+    if (s.exists()) s.forEach(c => { walls.set(c.key.replace('_',','), c.val()); });
+  });
+  connectedAt = Date.now();
+  roomRef.child('events').orderByChild('t').startAt(connectedAt).on('child_added', s => {
+    const id=s.key; if (seenEvents.has(id)) return; seenEvents.add(id);
+    const ev=s.val(); if (ev.by===ROLE) return;
+    if (ev.type==='shot'){ oppBullets.push({x:ev.x,y:ev.y,dx:ev.dx,dy:ev.dy,dist:0,checkOpp:false}); }
+    else if (ev.type==='hit' && ev.target===ROLE){
+      me.hp=Math.max(0,me.hp-ev.amount);
+      if (me.hp<=0 && me.alive){ me.alive=false; roomRef.child('players/'+ROLE).set({x:me.x,y:me.y,angle:me.angle,hp:0,alive:false}); showEnd(false,'You were eliminated'); }
+    }
+    else if (ev.type==='rematch'){ if (!matchActive) beginRound(); }
+  });
+}
+
+/* ---------- match lifecycle ---------- */
+function beginRound(){
+  endEl.classList.remove('show');
+  walls.clear(); myBullets=[]; oppBullets=[]; fireCd=0; seenEvents.clear();
+  me.hp=100; me.alive=true; me.building=false; me.wallsLeft=MAX_WALLS;
+  opp.hp=100; opp.alive=true;
+  me.x = ROLE==='host' ? 80 : W-80; me.y=H/2;
+  opp.x = ROLE==='host' ? W-80 : 80; opp.y=H/2;
+  me.angle = ROLE==='host' ? 0 : Math.PI;
+  modeEl.textContent='SHOOT — right-click or E to BUILD';
+  roomRef.child('walls').remove();
+  countdown(3, () => { matchActive=true; });
+}
+function countdown(n, done){
+  cdEl.style.display='block'; cdEl.textContent=n;
+  if (n>0) setTimeout(()=>countdown(n-1,done),800);
+  else { cdEl.textContent='GO!'; setTimeout(()=>{ cdEl.style.display='none'; done(); },500); }
+}
+function showEnd(won, detail){
+  matchActive=false;
+  endT.textContent = won ? 'You win! 🏆' : 'You lose';
+  endT.style.color = won ? 'var(--green)' : 'var(--magenta)';
+  endD.textContent = detail;
+  endEl.classList.add('show');
+}
+document.getElementById('rematchBtn').addEventListener('click', () => {
+  roomRef.child('events').push({type:'rematch',by:ROLE,t:Date.now()});
+  beginRound();
+});
+
+/* ---------- connection handshake ---------- */
+function startGame(){
+  statusEl.style.display='none';
+  hud.style.display='block';
+  badge.textContent='CONNECTED';
+  subscribe();
+  beginRound();
+  requestAnimationFrame(update);
+}
+
+if (db && CODE){
+  roomRef = db.ref('rooms/'+CODE);
+  // write my presence immediately
+  roomRef.child('players/'+ROLE).set({ x:0, y:0, angle:0, hp:100, alive:true });
+  roomRef.child('meta/'+ROLE).set(true);
+
+  if (ROLE==='host'){
+    statusTitle.textContent='WAITING FOR OPPONENT';
+    statusCode.style.display='block';
+    statusCode.textContent=CODE;
+    statusMsg.textContent='Share this code';
+    statusSub.textContent='The match starts the moment your friend joins.';
+    // wait for guest
+    roomRef.child('meta/guest').on('value', s => { if (s.val()===true) startGame(); });
+  } else {
+    statusTitle.textContent='JOINING ROOM '+CODE;
+    statusMsg.textContent='Connecting to host…';
+    // confirm the host exists; if not, still wait briefly (host may join after)
+    roomRef.child('meta/host').on('value', s => {
+      if (s.val()===true) startGame();
+      else { statusSub.textContent="Waiting for the host to open the game…"; }
+    });
+  }
+
+  // clean up presence on leave
+  roomRef.child('meta/'+ROLE).onDisconnect().remove();
+  roomRef.child('players/'+ROLE).onDisconnect().remove();
+}
+</script>
+
+</body>
+</html>
