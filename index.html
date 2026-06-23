@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%95%B9%EF%B8%8F</text></svg>">
+  <title>Web Arcade</title>
+  <meta name="description" content="A small hand-built collection of browser games — snake, pong, 2048, memory, breakout and more.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    <span>HIGH SCORE CHALLENGE</span>
+    <span>★</span>
+    <span>8 GAMES · 0 ADS · 0 INSTALLS</span>
+    <span>★</span>
+    <span>INSERT COIN TO CONTINUE</span>
+    <span>★</span>
+    <span>PRESS START</span>
+    <span>★</span>
+  </div>
+</div>
+
+<header class="header">
+  <p class="header__eyebrow">PLAYER ONE READY</p>
+  <h1>WEB ARCADE</h1>
+  <p>Eight small browser games, built and rebuilt by hand. No installs, no accounts — just press play.</p>
+
+  <div class="controls">
+    <input id="search" placeholder="Search the cabinet..." aria-label="Search games">
+    <button id="surprise" class="btn">🎲 Surprise me</button>
+  </div>
+</header>
+
+<nav class="filters" aria-label="Filter games by category">
+  <button class="chip is-active" data-category="all">All</button>
+  <button class="chip" data-category="classic">Classic</button>
+  <button class="chip" data-category="puzzle">Puzzle</button>
+  <button class="chip" data-category="arcade">Arcade</button>
+  <button class="chip" data-category="strategy">Strategy</button>
+  <button class="chip" data-category="multiplayer">Multiplayer</button>
+</nav>
+
+<section class="section-title">Game library</section>
+
+<section class="grid" id="games">
+
+  <a href="games/snake/" class="card" data-name="snake classic" data-category="classic">
+    <div class="card__screen"><img src="games/snake/thumbnail.svg" alt="Snake game thumbnail"></div>
+    <div class="card__body">
+      <span class="card__title">Snake</span>
+      <span class="card__tag">Classic</span>
+    </div>
+  </a>
+
+  <a href="games/pong/" class="card" data-name="pong classic" data-category="classic">
+    <div class="card__screen"><img src="games/pong/thumbnail.svg" alt="Pong game thumbnail"></div>
+    <div class="card__body">
+      <span class="card__title">Pong</span>
+      <span class="card__tag">Classic</span>
+    </div>
+  </a>
+
+  <a href="games/tictactoe/" class="card" data-name="tic tac toe strategy" data-category="strategy">
+    <div class="card__screen"><img src="games/tictactoe/thumbnail.svg" alt="Tic-tac-toe game thumbnail"></div>
+    <div class="card__body">
+      <span class="card__title">Tic-Tac-Toe</span>
+      <span class="card__tag">Strategy</span>
+    </div>
+  </a>
+
+  <a href="games/2048/" class="card" data-name="2048 puzzle" data-category="puzzle">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/2048/thumbnail.svg" alt="2048 game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">2048</span>
+      <span class="card__tag">Puzzle</span>
+    </div>
+  </a>
+
+  <a href="games/memory/" class="card" data-name="memory match puzzle" data-category="puzzle">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/memory/thumbnail.svg" alt="Memory match game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Memory Match</span>
+      <span class="card__tag">Puzzle</span>
+    </div>
+  </a>
+
+  <a href="games/breakout/" class="card" data-name="breakout brick breaker arcade" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/breakout/thumbnail.svg" alt="Breakout game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Breakout</span>
+      <span class="card__tag">Arcade</span>
+    </div>
+  </a>
+
+  <a href="games/dodger/" class="card" data-name="sky dodger flappy arcade" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/dodger/thumbnail.svg" alt="Sky Dodger game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Sky Dodger</span>
+      <span class="card__tag">Arcade</span>
+    </div>
+  </a>
+
+  <a href="games/shooter/" class="card" data-name="star defender shooter arcade" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/shooter/thumbnail.svg" alt="Star Defender game thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Star Defender</span>
+      <span class="card__tag">Arcade</span>
+    </div>
+  </a>
+
+
+
+  <a href="games/griduel/" class="card" data-name="grid duel build shoot multiplayer 1v1" data-category="multiplayer">
+    <div class="card__screen">
+      <span class="card__badge card__badge--live">LIVE</span>
+      <img src="games/griduel/thumbnail.svg" alt="Grid Duel thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Grid Duel</span>
+      <span class="card__tag">Multiplayer</span>
+    </div>
+  </a>
+
+  <a href="games/racer/" class="card" data-name="neon racer racing car acceleration city" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/racer/thumbnail.svg" alt="Neon Racer thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Neon Racer</span>
+      <span class="card__tag">Arcade</span>
+    </div>
+  </a>
+
+  <a href="games/cookie/" class="card" data-name="cookie clicker idle incremental" data-category="arcade">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/cookie/thumbnail.svg" alt="Cookie Clicker thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Cookie Clicker</span>
+      <span class="card__tag">Idle</span>
+    </div>
+  </a>
+
+  <a href="games/tetris/" class="card" data-name="tetris blocks puzzle" data-category="puzzle">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/tetris/thumbnail.svg" alt="Tetris thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Tetris</span>
+      <span class="card__tag">Puzzle</span>
+    </div>
+  </a>
+
+  <a href="games/minesweeper/" class="card" data-name="minesweeper mines puzzle" data-category="puzzle">
+    <div class="card__screen">
+      <span class="card__badge">NEW</span>
+      <img src="games/minesweeper/thumbnail.svg" alt="Minesweeper thumbnail">
+    </div>
+    <div class="card__body">
+      <span class="card__title">Minesweeper</span>
+      <span class="card__tag">Puzzle</span>
+    </div>
+  </a>
+
+  <a href="games/connect4/" class="card" data-name="connect four 4 strategy multiplayer online" data-category="strategy multiplayer">
+    <div class="card__screen"><span class="card__badge card__badge--live">LIVE</span><img src="games/connect4/thumbnail.svg" alt="Connect Four thumbnail"></div>
+    <div class="card__body"><span class="card__title">Connect Four</span><span class="card__tag">Strategy · Online</span></div>
+  </a>
+
+  <a href="games/asteroids/" class="card" data-name="asteroids space shooter arcade" data-category="arcade">
+    <div class="card__screen"><span class="card__badge">NEW</span><img src="games/asteroids/thumbnail.svg" alt="Asteroids thumbnail"></div>
+    <div class="card__body"><span class="card__title">Asteroids</span><span class="card__tag">Arcade</span></div>
+  </a>
+
+  <a href="games/simon/" class="card" data-name="simon memory pattern" data-category="puzzle">
+    <div class="card__screen"><span class="card__badge">NEW</span><img src="games/simon/thumbnail.svg" alt="Simon thumbnail"></div>
+    <div class="card__body"><span class="card__title">Simon</span><span class="card__tag">Memory</span></div>
+  </a>
+
+  <a href="games/whack/" class="card" data-name="whack a mole arcade reflex" data-category="arcade">
+    <div class="card__screen"><span class="card__badge">NEW</span><img src="games/whack/thumbnail.svg" alt="Whack-a-Mole thumbnail"></div>
+    <div class="card__body"><span class="card__title">Whack-a-Mole</span><span class="card__tag">Arcade</span></div>
+  </a>
+
+  <a href="games/typing/" class="card" data-name="speed typer typing test words" data-category="puzzle">
+    <div class="card__screen"><span class="card__badge">NEW</span><img src="games/typing/thumbnail.svg" alt="Speed Typer thumbnail"></div>
+    <div class="card__body"><span class="card__title">Speed Typer</span><span class="card__tag">Skill</span></div>
+  </a>
+
+</section>
+
+<footer class="site-footer">
+  Built with HTML, CSS &amp; vanilla JS — open source on GitHub.
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
