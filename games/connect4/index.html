@@ -206,6 +206,8 @@ function startOnline(){
   myNum=myRole==='host'?1:2;
   lobbyEl.classList.remove('show');
   connEl.textContent='CONNECTED';
+  boardEl.style.opacity='1';        // board is live now — make sure it's interactive
+  setStatus();
   // listen to the moves list; rebuild board on every change
   movesRef=roomRef.child('moves');
   movesRef.on('value',snap=>{
@@ -296,10 +298,6 @@ document.getElementById('ovBtn').addEventListener('click',()=>{
   if(mode==='online'){ if(roomRef)roomRef.child('moves').remove(); document.getElementById('overlay').classList.remove('show'); return; }
   reset();
 });
-
-// once connected, un-dim board
-const obs=new MutationObserver(()=>{ if(onlineReady)boardEl.style.opacity='1'; });
-obs.observe(connEl,{childList:true});
 
 reset();
 </script>
