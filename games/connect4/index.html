@@ -9,10 +9,10 @@
 <style>
   .wrap{display:flex;flex-direction:column;min-height:100vh}
   .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px;gap:16px}
-  .mode-row{display:flex;gap:8px}
+  .mode-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
   .mode-row button{font-family:var(--font-mono);font-size:12px;padding:8px 14px;background:var(--bg-panel-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--ink-dim);cursor:pointer}
   .mode-row button.active{border-color:var(--cyan);color:var(--cyan)}
-  .status{font-family:var(--font-display);font-size:13px;color:var(--amber);min-height:20px;text-align:center}
+  .status{font-family:var(--font-display);font-size:13px;color:var(--amber);min-height:20px;text-align:center;line-height:1.6}
   .board{background:#0e1830;border-radius:14px;padding:10px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;border:1px solid var(--border-strong)}
   .slot{width:46px;height:46px;border-radius:50%;background:#060809;cursor:pointer;transition:transform .08s;display:flex;align-items:center;justify-content:center}
   @media(max-width:520px){.slot{width:38px;height:38px}}
@@ -26,34 +26,93 @@
   .overlay.show{display:flex}
   .overlay__t{font-family:var(--font-display);font-size:24px;margin-bottom:18px;text-align:center}
   .overlay__c{text-align:center}
+
+  /* online lobby panel */
+  .lobby{display:none;flex-direction:column;align-items:center;gap:14px;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:var(--radius);padding:26px 22px;max-width:340px;width:100%}
+  .lobby.show{display:flex}
+  .lobby p{font-size:13px;color:var(--ink-dim);text-align:center;margin:0;line-height:1.55}
+  .lobby .code-box{font-family:var(--font-display);font-size:26px;color:var(--green);background:var(--bg-recess);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:12px 20px;letter-spacing:0.14em}
+  .lobby input{width:100%;box-sizing:border-box;padding:13px;font-size:17px;font-family:var(--font-mono);text-align:center;letter-spacing:0.14em;text-transform:uppercase;background:var(--bg-recess);color:var(--ink);border:2px solid var(--border-strong);border-radius:var(--radius-sm)}
+  .lobby input:focus{outline:none;border-color:var(--cyan)}
+  .lobby .btn{width:100%}
+  .lobby .divider{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em}
+  .lobby .err{color:var(--magenta);font-size:12px;min-height:16px}
+  .conn{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="game-topbar">
     <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
-    <span class="game-topbar__brand">CONNECT FOUR</span><span style="width:50px"></span>
+    <span class="game-topbar__brand">CONNECT FOUR</span>
+    <span class="conn" id="conn"></span>
   </div>
   <div class="stage">
     <div class="mode-row" id="modeRow">
       <button data-m="ai" class="active">vs Computer</button>
       <button data-m="2p">2 Players</button>
+      <button data-m="online">Online</button>
     </div>
+
+    <!-- online lobby (only shown in online mode before connecting) -->
+    <div class="lobby" id="lobby">
+      <p>Play a friend live. Create a room and share the code, or join theirs. Both of you need this page open.</p>
+      <button class="btn btn--solid" id="createBtn">Create Room</button>
+      <div id="hostBox" style="display:none;text-align:center">
+        <div class="code-box" id="codeDisplay"></div>
+        <p style="margin-top:8px">Waiting for opponent…</p>
+      </div>
+      <div class="divider">— or —</div>
+      <input id="codeInput" placeholder="ROOM CODE" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button class="btn" id="joinBtn">Join Room</button>
+      <div class="err" id="lobbyErr"></div>
+    </div>
+
     <div class="status" id="status">Your turn (red)</div>
     <div class="board" id="board"></div>
     <button class="btn" id="newBtn">New Game</button>
   </div>
 </div>
 <div class="overlay" id="overlay"><div class="overlay__c"><div class="overlay__t" id="ovT"></div><button class="btn btn--solid" id="ovBtn">Play again</button></div></div>
+
+<!-- Firebase only loaded for online play -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 <script>
 const R=6,C=7;
 let board,turn,mode='ai',over,busy;
+
+// online state
+let db=null,roomRef=null,roomCode='',myRole='',myNum=0,onlineReady=false,movesRef=null,lastMoveCount=0;
+const firebaseConfig={
+  apiKey:"AIzaSyB7kuBUtByYa9QVnc5DiTYgRvohWB02L6w",
+  authDomain:"games-web-8ce11.firebaseapp.com",
+  databaseURL:"https://games-web-8ce11-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"games-web-8ce11",
+  storageBucket:"games-web-8ce11.firebasestorage.app",
+  messagingSenderId:"507087897615",
+  appId:"1:507087897615:web:7a3bb6f03883d09b5d4f7a"
+};
+function initFirebase(){ if(!db){ try{ firebase.initializeApp(firebaseConfig); db=firebase.database(); }catch(e){ db=firebase.database(); } } }
+
 const boardEl=document.getElementById('board'),statusEl=document.getElementById('status');
-function reset(){board=Array.from({length:R},()=>Array(C).fill(0));turn=1;over=false;busy=false;render();setStatus();document.getElementById('overlay').classList.remove('show');}
+const lobbyEl=document.getElementById('lobby'),connEl=document.getElementById('conn');
+
+function reset(){
+  board=Array.from({length:R},()=>Array(C).fill(0));
+  turn=1;over=false;busy=false;
+  render();setStatus();
+  document.getElementById('overlay').classList.remove('show');
+}
 function setStatus(){
   if(over)return;
   if(mode==='ai')statusEl.textContent=turn===1?'Your turn (red)':'Computer thinking…';
-  else statusEl.textContent=turn===1?'Red\u2019s turn':'Yellow\u2019s turn';
+  else if(mode==='2p')statusEl.textContent=turn===1?'Red\u2019s turn':'Yellow\u2019s turn';
+  else if(mode==='online'){
+    if(!onlineReady){statusEl.textContent='';return;}
+    const mine=turn===myNum;
+    statusEl.textContent=(mine?'Your turn':'Opponent\u2019s turn')+' ('+(turn===1?'red':'yellow')+')';
+  }
 }
 function render(win){
   boardEl.innerHTML='';
@@ -78,9 +137,16 @@ function winLine(b,p){
   return null;
 }
 function full(b){return b[0].every(c=>c!==0);}
+
 function play(col){
   if(over||busy||board[0][col]!==0)return;
   if(mode==='ai'&&turn!==1)return;
+  if(mode==='online'){
+    if(!onlineReady||turn!==myNum)return;
+    // push my move to firebase; the listener applies it for both players
+    movesRef.push(col);
+    return;
+  }
   doMove(col);
 }
 function doMove(col){
@@ -109,17 +175,132 @@ function end(winner){
   let msg;
   if(winner===0)msg='Draw!';
   else if(mode==='ai')msg=winner===1?'🎉 You win!':'Computer wins';
+  else if(mode==='online')msg=winner===myNum?'🎉 You win!':'You lose';
   else msg=(winner===1?'Red':'Yellow')+' wins!';
   document.getElementById('ovT').textContent=msg;
-  document.getElementById('ovT').style.color=winner===1||winner===0?'var(--green)':'var(--magenta)';
+  const good=(mode==='online')?(winner===myNum||winner===0):(winner===1||winner===0);
+  document.getElementById('ovT').style.color=good?'var(--green)':'var(--magenta)';
   setTimeout(()=>document.getElementById('overlay').classList.add('show'),700);
 }
+
+/* ---------- online ---------- */
+function rebuildFromMoves(cols){
+  board=Array.from({length:R},()=>Array(C).fill(0));
+  turn=1;over=false;
+  let lastLine=null,lastTurn=1;
+  for(const col of cols){
+    drop(board,col,turn);
+    lastTurn=turn;
+    const line=winLine(board,turn);
+    if(line){lastLine=line;over=true;}
+    if(!over)turn=turn===1?2:1;
+  }
+  render(lastLine);
+  if(over&&lastLine){ end(lastTurn); }
+  else if(over&&full(board)){ end(0); }
+  else setStatus();
+}
+
+function startOnline(){
+  onlineReady=true;
+  myNum=myRole==='host'?1:2;
+  lobbyEl.classList.remove('show');
+  connEl.textContent='CONNECTED';
+  // listen to the moves list; rebuild board on every change
+  movesRef=roomRef.child('moves');
+  movesRef.on('value',snap=>{
+    const cols=[];
+    if(snap.exists())snap.forEach(c=>cols.push(c.val()));
+    rebuildFromMoves(cols);
+  });
+  // rematch signal
+  roomRef.child('rematch').on('value',snap=>{
+    if(snap.val()&&snap.val()>lastRematch){ lastRematch=snap.val(); /* both reset handled by clearing moves */ }
+  });
+}
+let lastRematch=0;
+
+function createRoom(){
+  initFirebase();
+  myRole='host';
+  roomCode=randCode();
+  roomRef=db.ref('c4rooms/'+roomCode);
+  document.getElementById('codeDisplay').textContent=roomCode;
+  document.getElementById('hostBox').style.display='block';
+  document.getElementById('createBtn').style.display='none';
+  connEl.textContent='ROOM OPEN';
+  roomRef.child('meta/host').set(true).catch(showBlocked);
+  roomRef.child('moves').remove();
+  roomRef.child('meta/guest').on('value',s=>{ if(s.val()===true) startOnline(); });
+  roomRef.child('meta/host').onDisconnect().remove();
+}
+function joinRoom(){
+  const code=document.getElementById('codeInput').value.trim().toUpperCase();
+  const err=document.getElementById('lobbyErr');
+  if(code.length<3){err.textContent='Enter the room code.';return;}
+  initFirebase();
+  myRole='guest';roomCode=code;
+  roomRef=db.ref('c4rooms/'+code);
+  err.textContent='';connEl.textContent='JOINING…';
+  roomRef.child('meta/host').once('value',s=>{
+    if(s.val()!==true){err.textContent='No room found with that code.';connEl.textContent='';return;}
+    roomRef.child('meta/guest').set(true).catch(showBlocked);
+    roomRef.child('meta/guest').onDisconnect().remove();
+    startOnline();
+  });
+}
+function showBlocked(){
+  document.getElementById('lobbyErr').innerHTML='Server blocked the connection. In Firebase set Realtime Database rules .read & .write to true.';
+  connEl.textContent='BLOCKED';
+}
+function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:5},()=>c[Math.floor(Math.random()*c.length)]).join('');}
+
+/* ---------- mode switching ---------- */
+function setMode(m){
+  mode=m;
+  // tear down any online listeners
+  if(movesRef){movesRef.off();movesRef=null;}
+  if(roomRef){roomRef.child('meta/guest').off();roomRef.off();}
+  onlineReady=false;myRole='';myNum=0;connEl.textContent='';
+  document.getElementById('createBtn').style.display='block';
+  document.getElementById('hostBox').style.display='none';
+  document.getElementById('lobbyErr').textContent='';
+  if(m==='online'){
+    lobbyEl.classList.add('show');
+    boardEl.style.opacity='0.4';
+    statusEl.textContent='';
+  }else{
+    lobbyEl.classList.remove('show');
+    boardEl.style.opacity='1';
+  }
+  reset();
+  if(m==='online'){ boardEl.style.opacity='0.4'; } // dim until connected
+}
+
 document.querySelectorAll('#modeRow button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#modeRow button').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');mode=b.dataset.m;reset();
+  b.classList.add('active');setMode(b.dataset.m);
 }));
-document.getElementById('newBtn').addEventListener('click',reset);
-document.getElementById('ovBtn').addEventListener('click',reset);
+document.getElementById('createBtn').addEventListener('click',createRoom);
+document.getElementById('joinBtn').addEventListener('click',joinRoom);
+document.getElementById('codeInput').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom();});
+
+document.getElementById('newBtn').addEventListener('click',()=>{
+  if(mode==='online'){
+    if(onlineReady&&roomRef){ roomRef.child('moves').remove(); } // clearing moves resets both boards
+    return;
+  }
+  reset();
+});
+document.getElementById('ovBtn').addEventListener('click',()=>{
+  if(mode==='online'){ if(roomRef)roomRef.child('moves').remove(); document.getElementById('overlay').classList.remove('show'); return; }
+  reset();
+});
+
+// once connected, un-dim board
+const obs=new MutationObserver(()=>{ if(onlineReady)boardEl.style.opacity='1'; });
+obs.observe(connEl,{childList:true});
+
 reset();
 </script>
 </body>

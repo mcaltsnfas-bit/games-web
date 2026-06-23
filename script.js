@@ -13,7 +13,9 @@ function applyFilters() {
     const category = card.dataset.category;
 
     const matchesTerm = name.includes(term);
-    const matchesCategory = activeCategory === "all" || category === activeCategory;
+    // a card can belong to multiple categories, e.g. "strategy multiplayer"
+    const cardCategories = (category || "").split(/\s+/);
+    const matchesCategory = activeCategory === "all" || cardCategories.includes(activeCategory);
 
     card.style.display = matchesTerm && matchesCategory ? "" : "none";
   });
