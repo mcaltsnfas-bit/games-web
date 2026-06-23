@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔴</text></svg>">
 <title>Connect Four — Web Arcade</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="stylesheet" href="../../style.css">
 <style>
   .wrap{display:flex;flex-direction:column;min-height:100vh}
@@ -98,6 +101,12 @@ function initFirebase(){ if(!db){ try{ firebase.initializeApp(firebaseConfig); d
 
 const boardEl=document.getElementById('board'),statusEl=document.getElementById('status');
 const lobbyEl=document.getElementById('lobby'),connEl=document.getElementById('conn');
+// ONE delegated click handler — survives re-renders, never goes stale
+boardEl.addEventListener('click',e=>{
+  const slot=e.target.closest('.slot');
+  if(!slot)return;
+  play(parseInt(slot.dataset.col,10));
+});
 
 function reset(){
   board=Array.from({length:R},()=>Array(C).fill(0));
@@ -119,9 +128,8 @@ function setStatus(){
 function render(win){
   boardEl.innerHTML='';
   for(let r=0;r<R;r++)for(let c=0;c<C;c++){
-    const slot=document.createElement('div');slot.className='slot';
+    const slot=document.createElement('div');slot.className='slot';slot.dataset.col=c;
     if(board[r][c]){const d=document.createElement('div');d.className='disc p'+board[r][c];if(win&&win.some(([wr,wc])=>wr===r&&wc===c))d.classList.add('win');slot.appendChild(d);}
-    slot.addEventListener('click',()=>play(c));
     boardEl.appendChild(slot);
   }
 }
