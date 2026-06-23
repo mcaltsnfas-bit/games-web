@@ -41,6 +41,7 @@
 </style>
 </head>
 <body>
+<div id="dbg" style="position:fixed;bottom:6px;left:6px;z-index:999;font-family:monospace;font-size:11px;color:#3ee08a;background:rgba(0,0,0,.8);padding:6px 9px;border-radius:6px;max-width:90vw;white-space:pre-wrap"></div>
 <div class="wrap">
   <div class="game-topbar">
     <a class="game-topbar__back" href="../../index.html">&larr; Arcade</a>
@@ -109,9 +110,10 @@ function setStatus(){
   if(mode==='ai')statusEl.textContent=turn===1?'Your turn (red)':'Computer thinking…';
   else if(mode==='2p')statusEl.textContent=turn===1?'Red\u2019s turn':'Yellow\u2019s turn';
   else if(mode==='online'){
-    if(!onlineReady){statusEl.textContent='';return;}
+    if(!onlineReady){statusEl.textContent='';dbg();return;}
     const mine=turn===myNum;
     statusEl.textContent=(mine?'Your turn':'Opponent\u2019s turn')+' ('+(turn===1?'red':'yellow')+')';
+    dbg();
   }
 }
 function render(win){
@@ -138,7 +140,13 @@ function winLine(b,p){
 }
 function full(b){return b[0].every(c=>c!==0);}
 
+function dbg(extra){
+  const d=document.getElementById('dbg');
+  if(!d)return;
+  d.textContent='mode='+mode+' ready='+onlineReady+' myNum='+myNum+' turn='+turn+' over='+over+' role='+myRole+(extra?'\n'+extra:'');
+}
 function play(col){
+  dbg('CLICK col '+col+' | board[0][col]='+board[0][col]+' | mine='+(turn===myNum));
   if(over||busy||board[0][col]!==0)return;
   if(mode==='ai'&&turn!==1)return;
   if(mode==='online'){
