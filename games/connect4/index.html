@@ -142,9 +142,12 @@ function play(col){
   if(over||busy||board[0][col]!==0)return;
   if(mode==='ai'&&turn!==1)return;
   if(mode==='online'){
-    if(!onlineReady||turn!==myNum)return;
+    if(!onlineReady){ statusEl.textContent='Not connected yet…'; return; }
+    if(turn!==myNum){ return; }            // not your turn — silently ignore
+    if(!movesRef){ statusEl.textContent='Connection error (no room ref)'; return; }
     // push my move to firebase; the listener applies it for both players
-    movesRef.push(col);
+    movesRef.push(col)
+      .catch(err => { statusEl.textContent='Move failed: '+(err&&err.code?err.code:'check DB rules'); });
     return;
   }
   doMove(col);
@@ -201,7 +204,10 @@ function rebuildFromMoves(cols){
   else setStatus();
 }
 
+let onlineStarted=false;
 function startOnline(){
+  if(onlineStarted) return;          // prevent duplicate listeners if meta/guest fires twice
+  onlineStarted=true;
   onlineReady=true;
   myNum=myRole==='host'?1:2;
   lobbyEl.classList.remove('show');
@@ -263,7 +269,7 @@ function setMode(m){
   // tear down any online listeners
   if(movesRef){movesRef.off();movesRef=null;}
   if(roomRef){roomRef.child('meta/guest').off();roomRef.off();}
-  onlineReady=false;myRole='';myNum=0;connEl.textContent='';
+  onlineReady=false;onlineStarted=false;myRole='';myNum=0;connEl.textContent='';
   document.getElementById('createBtn').style.display='block';
   document.getElementById('hostBox').style.display='none';
   document.getElementById('lobbyErr').textContent='';
