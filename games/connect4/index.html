@@ -103,14 +103,13 @@ const boardEl=document.getElementById('board'),statusEl=document.getElementById(
 const lobbyEl=document.getElementById('lobby'),connEl=document.getElementById('conn');
 // ONE delegated click handler — survives re-renders, never goes stale
 boardEl.addEventListener('click',e=>{
-  // Compute which column from the click's X position relative to the board.
-  // Robust against clicks landing on slots, discs, gaps, or padding.
   const rect=boardEl.getBoundingClientRect();
-  const pad=10; // matches .board padding
+  const pad=10;
   const inner=rect.width-pad*2;
   let x=e.clientX-rect.left-pad;
   if(x<0)x=0; if(x>inner)x=inner;
   const col=Math.min(C-1,Math.max(0,Math.floor(x/(inner/C))));
+  dbg('BOARD CLICKED -> col '+col);
   play(col);
 });
 
@@ -160,16 +159,19 @@ function dbg(extra){
   d.textContent='mode='+mode+' ready='+onlineReady+' myNum='+myNum+' turn='+turn+' over='+over+' role='+myRole+(extra?'\n'+extra:'');
 }
 function play(col){
-  dbg('CLICK col '+col+' | board[0][col]='+board[0][col]+' | mine='+(turn===myNum));
-  if(over||busy||board[0][col]!==0)return;
+  dbg('CLICK col='+col+' over='+over+' busy='+busy+' top='+board[0][col]+' mode='+mode+' turn='+turn+' myNum='+myNum);
+  if(over){ dbg('BLOCKED: over=true'); return; }
+  if(busy){ dbg('BLOCKED: busy=true'); return; }
+  if(board[0][col]!==0){ dbg('BLOCKED: column full'); return; }
   if(mode==='ai'&&turn!==1)return;
   if(mode==='online'){
-    if(!onlineReady){ statusEl.textContent='Not connected yet…'; return; }
-    if(turn!==myNum){ return; }            // not your turn — silently ignore
-    if(!movesRef){ statusEl.textContent='Connection error (no room ref)'; return; }
-    // push my move to firebase; the listener applies it for both players
+    if(!onlineReady){ dbg('NOT READY'); return; }
+    if(turn!==myNum){ dbg('NOT YOUR TURN (turn='+turn+' myNum='+myNum+')'); return; }
+    if(!movesRef){ dbg('NO movesRef!'); return; }
+    dbg('PUSHING col '+col+' to firebase…');
     movesRef.push(col)
-      .catch(err => { statusEl.textContent='Move failed: '+(err&&err.code?err.code:'check DB rules'); });
+      .then(()=>{ dbg('PUSH OK col '+col+' — waiting for sync…'); })
+      .catch(err => { dbg('PUSH FAILED: '+(err&&err.code?err.code:err.message||'unknown')); });
     return;
   }
   doMove(col);
@@ -241,8 +243,9 @@ function startOnline(){
   movesRef.on('value',snap=>{
     const cols=[];
     if(snap.exists())snap.forEach(c=>cols.push(c.val()));
+    dbg('SYNC received: '+cols.length+' moves ['+cols.join(',')+']');
     rebuildFromMoves(cols);
-  });
+  },err=>{ dbg('SYNC READ FAILED: '+(err&&err.code?err.code:'unknown')); });
   // rematch signal
   roomRef.child('rematch').on('value',snap=>{
     if(snap.val()&&snap.val()>lastRematch){ lastRematch=snap.val(); /* both reset handled by clearing moves */ }
