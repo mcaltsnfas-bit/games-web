@@ -103,9 +103,15 @@ const boardEl=document.getElementById('board'),statusEl=document.getElementById(
 const lobbyEl=document.getElementById('lobby'),connEl=document.getElementById('conn');
 // ONE delegated click handler — survives re-renders, never goes stale
 boardEl.addEventListener('click',e=>{
-  const slot=e.target.closest('.slot');
-  if(!slot)return;
-  play(parseInt(slot.dataset.col,10));
+  // Compute which column from the click's X position relative to the board.
+  // Robust against clicks landing on slots, discs, gaps, or padding.
+  const rect=boardEl.getBoundingClientRect();
+  const pad=10; // matches .board padding
+  const inner=rect.width-pad*2;
+  let x=e.clientX-rect.left-pad;
+  if(x<0)x=0; if(x>inner)x=inner;
+  const col=Math.min(C-1,Math.max(0,Math.floor(x/(inner/C))));
+  play(col);
 });
 
 function reset(){
